@@ -3,3 +3,190 @@ title: "Chapter4"
 output: html_document
 ---
 
+```{r 4.7}
+library(rethinking)
+data(Howell1)
+d <- Howell1
+```
+```{r 4.8}
+str(d)
+```
+
+```{r 4.9}
+precis(d)
+```
+```{r 4.10}
+d$height
+```
+
+```{r 4.11}
+d2 <- d[d$age >= 18,]
+```
+
+```{r 4.12}
+curve(dnorm(x, 178, 20), from = 100, to = 250)
+```
+```{r 4.13}
+curve(dunif(x, 0, 50), from = -10, to = 60)
+```
+```{r 4.14}
+sample_mu <- rnorm(1e4, 178, 20)
+sample_sigma <- runif(1e4, 0, 50)
+prior_h <- rnorm(1e4, sample_mu, sample_sigma)
+dens(prior_h)
+```
+```{r 4.15}
+sample_mu <- rnorm(1e4, 178, 100)
+prior_h <- rnorm(1e4, sample_mu, sample_sigma)
+dens(prior_h)
+```
+```{r 4.16}
+mu.list <- seq(from = 150, to = 160, length.out = 100)
+sigma.list <- seq(from = 7, to = 9, length.out = 100)
+post <- expand.grid(mu = mu.list, sigma = sigma.list)
+
+post$LL <- sapply(1:nrow(post), function(i) sum(dnorm(d2$height, post$mu[i], post$sigma[i]), log = TRUE))
+
+post$prod <- post$LL + dnorm(post$mu, 178, 20, TRUE) + dunif(post$sigma, 0, 50, TRUE)
+
+post$prob <- exp(post$prod - max(post$prod))
+```
+
+```{r 4.17}
+contour_xyz(post$mu, post$sigma, post$prob)
+```
+```{r 4.18}
+image_xyz(post$mu, post$sigma, post$prob)
+```
+
+```{r 4.19}
+sample.rows <- sample(1:nrow(post), 
+                      size = 1e4, 
+                      replace = TRUE,
+                      prob = post$prob)
+
+sample.mu <- post$mu[sample.rows]
+sample.sigma <- post$sigma[sample.rows]
+```
+
+```{r 4.20}
+plot(sample.mu, 
+     sample.sigma, 
+     cex = 0.5,
+     pch = 16,
+     col = col.alpha(rangi2, 0.1))
+```
+```{r 4.21}
+dens(sample.mu)
+dens(sample.sigma)
+```
+```{r 4.22}
+PI(sample.mu)
+PI(sample.sigma)
+```
+
+```{r 4.27}
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ dnorm(178, 20),
+  sigma ~ dunif(0, 50)
+)
+```
+
+```{r 4.28}
+m4.1 <- quap(flist, data = d2)
+```
+
+```{r 4.29}
+precis(m4.1)
+```
+```{r 4.31}
+m4.2 <- quap(alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ dnorm(178, 0.1),
+  sigma ~ dunif(0, 50)
+), data = d2)
+
+precis(m4.2)
+```
+```{r 4.32}
+vcov(m4.1)
+```
+```{r 4.33}
+diag(vcov(m4.1))
+cov2cor(vcov(m4.1))
+```
+```{r 4.34}
+post <- extract.samples(m4.1, n = 1e4)
+head(post)
+```
+```{r}
+precis(post)
+```
+
+```{r 4.37}
+plot(d2$height ~ d2$weight)
+```
+```{r 4.38}
+set.seed(2971)
+N <- 100
+a <- rnorm(N, 178, 20)
+b <- rnorm(N, 0, 10)
+```
+
+```{r 4.39}
+plot(NULL, xlim = range(d2$weight), ylim = c(-100, 400), xlab = "weight", ylab = "height")
+abline(h = 0, lty = 2)
+abline(h = 272, lty = 1, lwd = 0.5)
+mtext("b ~ dnorm(0,10)")
+xbar <- mean(d2$weight)
+for(i in 1:N){
+  curve(a[i] + b[i]*(x - xbar),
+        from = min(d2$weight),
+        to = max(d2$weight),
+        add = TRUE,
+        col = col.alpha("black", 0.2))
+}
+```
+```{r 4.40}
+b <- rlnorm(1e4, 0, 1)
+dens(b, xlim = c(0,5), adj = 0.1)
+```
+```{r 4.41}
+set.seed(2971)
+N <- 100
+a <- rnorm(N, 178, 20)
+b <- rlnorm(N, 0, 1)
+
+plot(NULL, xlim = range(d2$weight), ylim = c(-100, 400), xlab = "weight", ylab = "height")
+abline(h = 0, lty = 2)
+abline(h = 272, lty = 1, lwd = 0.5)
+mtext("b ~ dnorm(0,10)")
+xbar <- mean(d2$weight)
+for(i in 1:N){
+  curve(a[i] + b[i]*(x - xbar),
+        from = min(d2$weight),
+        to = max(d2$weight),
+        add = TRUE,
+        col = col.alpha("black", 0.2))
+}
+```
+```{r 4.42}
+m4.3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*(weight - xbar),
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0,50)
+  ),
+  data = d2
+)
+```
+
+
+
+
+
+
+
