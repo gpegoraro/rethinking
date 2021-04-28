@@ -3,6 +3,7 @@ title: "Chapter 5"
 output: html_document
 ---
 
+## 5.1 Spurious Associations
 ```{r 5.1}
 library(rethinking)
 data(WaffleDivorce)
@@ -39,6 +40,419 @@ for(i in 1:50){
   lines(c(-2, 2), mu[i,], col = col.alpha("black", 0.4) )
 }
 ```
+```{r 5.5}
+A_seq <- seq(-3, 3.2, length.out = 30)
+mu <- link(m5.1, data = list(A = A_seq))
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI)
 
+plot(D ~ A, data = d, col = rangi2)
+lines(A_seq, mu.mean, lwd = 2)
+shade(mu.PI, A_seq)
+```
+
+```{r 5.6}
+m5.2 <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM * M,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+```
+
+```{r 5.5b}
+M_seq <- seq(-3, 3.2, length.out = 30)
+mu <- link(m5.2, data = list(M = M_seq))
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI)
+
+plot(D ~ M, data = d, col = rangi2)
+lines(A_seq, mu.mean, lwd = 2)
+shade(mu.PI, M_seq)
+```
+### 5.1.1 Think Before You Regress
+```{r 5.7}
+library(dagitty)
+dag5.1 <- dagitty("dag{A -> D; A -> M; M -> D}")
+coordinates(dag5.1) <- list(x = c(A=0, D = 1, M = 2),
+                            y = c(A=0, D = 1, M = 0))
+drawdag(dag5.1)
+```
+```{r 5.7b}
+dag5.1b <- dagitty("dag{A -> D; A -> M}")
+coordinates(dag5.1b) <- list(x = c(A=0, D = 1, M = 2),
+                            y = c(A=0, D = 1, M = 0))
+drawdag(dag5.1b)
+```
+### 5.1.2 Testable Implications
+```{r 5.8} 
+DMA_dag1 <- dagitty("dag{D <- A -> M -> D}")
+DMA_dag2 <- dagitty("dag{D <- A -> M}")
+```
+```{r 5.8b} 
+impliedConditionalIndependencies(DMA_dag1)
+```
+```{r 5.8c} 
+impliedConditionalIndependencies(DMA_dag2)
+```
+### 5.1.3 Multiple Regression Notation
+### 5.1.4 Approximating the Posterior
+```{r 5.10}
+m5.3 <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM * M + bA * A,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    bA ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m5.3)
+```
+
+```{r 5.11}
+plot(coeftab(m5.1, m5.2, m5.3), par = c("bA", "bM"))
+```
+### 5.1.5 Plotting Multivariate Posteriors
+#### 5.1.5.1 Posterior Residual Plots
+```{r 5.13}
+m5.4 <- quap(
+  alist(
+    M ~ dnorm(mu, sigma),
+    mu <- a + bAM * A,
+    a ~ dnorm(0, 0.2),
+    bAM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+```
+
+```{r 5.14}
+mu <- link(m5.4)
+mu_mean <- apply(mu, 2, mean)
+mu_resid <- d$M - mu_mean
+```
+#### 5.1.5.2 Posterior Prediction Plots
+```{r 5.15}
+mu <- link(m5.3)
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+
+D_sim <- sim(m5.3, n=1e4)
+D_PI <- apply(D_sim, 2, PI) 
+```
+
+```{r 5.16}
+plot(mu_mean ~ d$D, col = rangi2, ylim = range(mu_PI),
+     xlab = "Observed Divorce", ylab =  "Predicted Divorce")
+abline(a = 0, b = 1, lty = 2)
+for(i in 1:nrow(d)){
+  lines(rep(d$D[i], 2), mu_PI[,i], col = rangi2)
+}
+```
+
+#### 5.1.5.3 Counterfactual Plots
+```{r 5.19}
+m5.3_A <- quap(
+  alist(
+    ## A -> D <- M
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM * M + bA * A,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    bA ~ dnorm(0, 0.5),
+    sigma ~ dexp(1),
+    ## A -> M
+    M ~ dnorm(mu_M, sigma_M),
+    mu_M <- aM +  bAM * A,
+    aM ~ dnorm(0, 0.2),
+    bAM ~ dnorm(0, 0.5),
+    sigma_M ~ dexp(1)
+  ), data = d
+)
+
+precis(m5.3_A)
+```
+```{r 5.21}
+A_seq <- seq(-2, 2, length.out = 30)
+
+sim_dat <- data.frame(A = A_seq)
+
+# simulate M and then D, using A_seq
+s <- sim(m5.3_A, data = sim_dat, vars = c("M", "D"))
+```
+
+```{r 5.22}
+plot(sim_dat$A, colMeans(s$D), ylim = c(-2, 2),
+     type = "l", xlab = "Manipulated A",
+     ylab = "Counterfactual D")
+shade(apply(s$D, 2, PI), sim_dat$A)
+mtext("Total Counterfactual effect of A on D")
+```
+```{r 5.22b}
+plot(sim_dat$A, colMeans(s$M), ylim = c(-2, 2),
+     type = "l", xlab = "Manipulated A",
+     ylab = "Counterfactual M")
+shade(apply(s$M, 2, PI), sim_dat$A)
+mtext("Total Counterfactual effect of A on M")
+```
+```{r 5.23}
+A_std <- sd(d$MedianAgeMarriage)
+sim2_dat <- data.frame(A=(c(20, 30)-26.1)/A_std)
+s2 <- sim(m5.3_A, data = sim2_dat, vars = c("M", "D"))
+mean(s2$D[,2] - s2$D[,1])
+```
+
+```{r}
+dag5.2 <- dagitty("dag{A -> D; M -> D}")
+coordinates(dag5.2) <- list(x = c(A=0, D = 1, M = 2),
+                            y = c(A=0, D = 1, M = 0))
+drawdag(dag5.2)
+```
+```{r 5.24}
+sim_dat <- data.frame(M= seq(-2, 2, length.out = 30), A = 0)
+s <- sim(m5.3_A, data = sim_dat, vars = "D")
+
+plot(sim_dat$M, colMeans(s), ylim = c(-2, 2),
+     type = "l", xlab = "Manipulated M",
+     ylab = "Counterfactual D")
+shade(apply(s, 2, PI), sim_dat$M)
+mtext("Total Counterfactual effect of M on D")
+```
+
+## 5.2 Masked Relationship
+```{r 5.28}
+data("milk")
+d <- milk
+str(d)
+```
+```{r 5.29}
+d$K <- standardize(d$kcal.per.g)
+d$N <- standardize(d$neocortex.perc)
+d$M <- standardize(log(d$mass))
+```
+```{r 5.30}
+m5.5_draft <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 1),
+    bN ~ dnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = d
+)
+```
+```{r 5.31}
+d$neocortex.perc
+```
+```{r 5.32}
+dcc <- d[complete.cases(d$K, d$N, d$M),]
+```
+
+```{r 5.33}
+m5.5_draft <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 1),
+    bN ~ dnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+```
+
+```{r 5.34}
+prior <- extract.prior(m5.5_draft)
+xseq <- c(-2, 2)
+mu <- link(m5.5_draft, post = prior, data = list(N=xseq))
+
+plot(NULL, xlim = xseq, ylim = xseq,
+     ylab = "Kilocal per g (std)",
+     xlab = "Neocortex Percent (std)")
+for(i in 1:50){
+  lines(xseq, mu[i,], col = col.alpha("black", 0.3))
+}
+```
+```{r 5.35}
+m5.5 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 0.2),
+    bN ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+```
+
+```{r 5.35b}
+prior <- extract.prior(m5.5)
+xseq <- c(-2, 2)
+mu <- link(m5.5, 
+           post = prior, 
+           data = list(N=xseq))
+
+plot(NULL, xlim = xseq, ylim = xseq,
+     ylab = "Kilocal per g (std)",
+     xlab = "Neocortex Percent (std)")
+for(i in 1:50){
+  lines(xseq, mu[i,], col = col.alpha("black", 0.3))
+}
+```
+```{r 5.36}
+precis(m5.5)
+```
+```{r 5.37}
+xseq <- seq(min(dcc$N) - 0.15, max(dcc$N) + 0.15, length.out = 30)
+mu <- link(m5.5, data = list(N = xseq))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+
+plot(K ~ N, data = dcc,
+     ylab = "Kilocal per g (std)",
+     xlab = "Neocortex Percent (std)")
+lines(xseq, mu_mean, lwd = 2)
+shade(mu_PI, xseq)
+```
+```{r 5.38}
+m5.6 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bM*M,
+    a ~ dnorm(0,0.2),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+
+precis(m5.6)
+```
+```{r 5.38b}
+xseq <- seq(min(dcc$M) - 0.15, max(dcc$M) + 0.15, length.out = 30)
+mu <- link(m5.6, data = list(M = xseq))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+
+plot(K ~ N, data = dcc,
+     ylab = "Kilocal per g (std)",
+     xlab = "log(Body Mass) (std)")
+lines(xseq, mu_mean, lwd = 2)
+shade(mu_PI, xseq)
+```
+```{r 5.39}
+m5.7 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bM*M + bN*N,
+    a ~ dnorm(0,0.2),
+    bM ~ dnorm(0, 0.5),
+    bN ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+
+precis(m5.7)
+```
+```{r 5.40}
+plot(coeftab(m5.5, m5.6, m5.7), pars = c("bM", "bN"))
+```
+```{r 5.40b}
+pairs(~ K + M + N, dcc)
+```
+```{r 5.41}
+sim_dat <- data.frame(N= seq(-2, 2, length.out = 30), M = 0)
+s <- link(m5.7, data = sim_dat, vars = "K")
+
+plot(sim_dat$N, colMeans(s), ylim = c(-2, 2),
+     type = "l", xlab = "Manipulated N",
+     ylab = "Counterfactual K")
+shade(apply(s, 2, PI), sim_dat$N)
+mtext("Total Counterfactual effect of N on K")
+```
+```{r 5.41b}
+sim_dat <- data.frame(M= seq(-2, 2, length.out = 30), N = 0)
+s <- link(m5.7, data = sim_dat, vars = "K")
+
+plot(sim_dat$M, colMeans(s), ylim = c(-2, 2),
+     type = "l", xlab = "Manipulated M",
+     ylab = "Counterfactual K")
+shade(apply(s, 2, PI), sim_dat$M)
+mtext("Total Counterfactual effect of M on K")
+```
+```{r 5.44}
+dag5.7 <- dagitty("dag{
+                  M -> K <- N
+                  M -> N}")
+
+coordinates(dag5.7) <- list(x = c(M=0, K=1, N = 2),
+                            y = c(M = 0.5, K = 1, N = 0.5))
+
+drawdag(dag5.7)
+```
+```{r 5.44b}
+MElist <- equivalentDAGs(dag5.7)
+drawdag(MElist)
+```
+
+
+
+
+
+## 5.3 Categorical Variables
+```{r 5.45}
+data("Howell1")
+d <- Howell1
+precis(d)
+```
+```{r 5.47}
+d$sex <- ifelse(d$male == 1, 2, 1)
+str(d$sex)
+```
+```{r 5.48}
+m5.8 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a[sex],
+    a[sex] ~ dnorm(178, 20),
+    sigma ~ dunif(0,50)
+  ), data = d
+)
+
+precis(m5.8, depth = 2)
+```
+```{r 5.49}
+post <- extract.samples(m5.8)
+post$diff_fm <- post$a[,1] - post$a[,2]
+precis(post, depth = 2)
+```
+```{r 5.51}
+d <- milk
+d$clade_id <- as.integer(d$clade)
+d$K <- standardize(d$kcal.per.g)
+```
+
+```{r 5.52}
+m5.9 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a[clade_id],
+    a[clade_id] ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m5.9, depth = 2)
+```
+```{r 5.52b}
+labels <- paste("a[", 1:4, "]:", levels(d$clade), sep = "")
+plot(precis(m5.9, depth = 2, pars = "a"),
+     labels = labels,
+     xlab = "Expected kcal (std)")
+```
 
 
