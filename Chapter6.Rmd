@@ -1,0 +1,116 @@
+---
+title: "Chapter 6"
+output: html_document
+---
+## 6.1 Multicollinearity
+### 6.1.1 Multicollinear legs
+```{r 6.2}
+set.seed(909)
+
+N <- 100
+height <- rnorm(N, 10, 2)
+leg_prop <- runif(N, 0.4, 0.5)
+leg_left <- leg_prop * height + rnorm(N, 0, 0.02)
+leg_right <- leg_prop * height + rnorm(N, 0, 0.02)
+d <- data.frame(height, leg_left, leg_right)
+```
+
+```{r 6.3}
+m6.1 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <-  a + bL * leg_left + bR * leg_right,
+    a ~ dnorm(10, 100),
+    bL ~ dnorm(2, 10),
+    bR ~ dnorm(2, 10),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.1)
+```
+
+```{r 6.4}
+plot(precis(m6.1))
+```
+```{r 6.5}
+post <- extract.samples(m6.1)
+plot(bL ~ bR, post, col = col.alpha(rangi2, 0.1), pch = 16)
+```
+```{r 6.6}
+sum_bLbR <- post$bL + post$bR
+dens(sum_bLbR, col = rangi2, lwd = 2, xlab = "Sum of bL and bR")
+```
+```{r 6.7}
+m6.2 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bL * leg_left,
+    a ~ dnorm(10, 100),
+    bL ~ dnorm(2, 10),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.2)
+```
+
+### 6.1.2 Multicollinear milk
+```{r 6.8}
+library(rethinking)
+data("milk")
+d <- milk
+str(d)
+```
+
+```{r 6.8b}
+d$K <- standardize(d$kcal.per.g)
+d$F <- standardize(d$perc.fat)
+d$L <- standardize(d$perc.lactose)
+```
+
+```{r 6.9}
+m6.3 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bF*F,
+    a ~ dnorm(0, 0.2),
+    bF ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+m6.4 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bL*L,
+    a ~ dnorm(0, 0.2),
+    bL ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.3)
+precis(m6.4)
+```
+```{r 6.10}
+m6.5 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bF*F + bL*L,
+    a ~ dnorm(0, 0.2),
+    bF ~ dnorm(0, 0.5),
+    bL ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.5)
+```
+```{r 6.11}
+pairs(~ kcal.per.g + perc.fat + perc.lactose, 
+      data = d, col = rangi2)
+```
+
+
+

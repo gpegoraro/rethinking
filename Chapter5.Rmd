@@ -236,7 +236,7 @@ d$K <- standardize(d$kcal.per.g)
 d$N <- standardize(d$neocortex.perc)
 d$M <- standardize(log(d$mass))
 ```
-```{r 5.30}
+```{r 5.30, eval=FALSE}
 m5.5_draft <- quap(
   alist(
     K ~ dnorm(mu, sigma),
