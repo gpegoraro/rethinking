@@ -4,6 +4,11 @@ output: html_document
 ---
 ## 6.1 Multicollinearity
 ### 6.1.1 Multicollinear legs
+
+```{r}
+library(rethinking)
+```
+
 ```{r 6.2}
 set.seed(909)
 
@@ -110,6 +115,47 @@ precis(m6.5)
 ```{r 6.11}
 pairs(~ kcal.per.g + perc.fat + perc.lactose, 
       data = d, col = rangi2)
+```
+### 6.2 Post-treatment bias
+Example of the treatment of plants with anitfungal to explain *Post Treatment* bias, which is a form of *Included variable bias*.
+```{r 6.13}
+# number of plants
+N <- 100
+
+#simluate initial heights
+h0 <- rnorm(N, 10, 2)
+
+# assign treatments and simulate fungus and growth
+treatment <- rep(0:1, each = N/2)
+fungus <- rbinom(N, size = 1, prob = 0.5 - treatment*0.4)
+h1 <- h0 + rnorm(N, 5 - 3*fungus)
+
+# Put everything together in a dataframe
+d <- data.frame(h0 = h0,
+                h1 = h1,
+                treatment = treatment,
+                fungus = fungus)
+
+precis(d)
+```
+```{r 6.14}
+sim_p <- rlnorm(1e4, 0, 0.25)
+dens(sim_p)
+```
+```{r 6.14b}
+precis(sim_p)
+```
+```{r 6.15}
+m6.6 <- quap(
+  alist(
+    h1 ~ dnorm(mu, sigma),
+    mu <- ho * p,
+    p ~ rlnorm(0, 0.25),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.6)
 ```
 
 
