@@ -116,9 +116,11 @@ precis(m6.5)
 pairs(~ kcal.per.g + perc.fat + perc.lactose, 
       data = d, col = rangi2)
 ```
-### 6.2 Post-treatment bias
+## 6.2 Post-treatment bias
 Example of the treatment of plants with anitfungal to explain *Post Treatment* bias, which is a form of *Included variable bias*.
 ```{r 6.13}
+set.seed(71)
+
 # number of plants
 N <- 100
 
@@ -138,6 +140,7 @@ d <- data.frame(h0 = h0,
 
 precis(d)
 ```
+### 6.2.1 A Prior is born
 ```{r 6.14}
 sim_p <- rlnorm(1e4, 0, 0.25)
 dens(sim_p)
@@ -149,13 +152,247 @@ precis(sim_p)
 m6.6 <- quap(
   alist(
     h1 ~ dnorm(mu, sigma),
-    mu <- ho * p,
-    p ~ rlnorm(0, 0.25),
+    mu <- h0 * p,
+    p ~ dlnorm(0, 0.25),
     sigma ~ dexp(1)
   ), data = d
 )
 
 precis(m6.6)
+```
+
+```{r 6.16}
+m6.7 <- quap(
+  alist(
+    h1 ~ dnorm(mu, sigma),
+    mu <- h0 * p,
+    p <- a + bT * treatment + bF * fungus,
+    a ~ dlnorm(0, 0.25),
+    bT ~ dnorm(0, 0.5),
+    bF ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.7)
+```
+
+### 6.2.2 Blocked by Consequence
+```{r 6.17}
+m6.8 <- quap(
+  alist(
+    h1 ~ dnorm(mu, sigma),
+    mu <- h0 * p,
+    p <- a + bT * treatment,
+    a ~ dlnorm(0, 0.25),
+    bT ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.8)
+```
+### 6.2.3 Fungus and d-separation
+```{r 6.18}
+library(dagitty)
+
+plant_dag <- dagitty("dag{
+                     H0 -> H1
+                     F -> H1
+                     T -> F}")
+
+coordinates(plant_dag) <- list(
+  x = c(H0 = 0,
+        T = 2,
+        F = 1.5,
+        H1 = 1),
+  y = c(H0 = 0,
+        T = 0,
+        F = 0,
+        H1 = 0)
+)
+
+drawdag(plant_dag)
+```
+```{r 6.19}
+impliedConditionalIndependencies(plant_dag)
+```
+
+```{r 6.20}
+set.seed(71)
+
+N <- 1000
+h0 <- rnorm(N, 10, 2)
+treatment <- rep(0:1, each = N/2)
+M <- rbern(N)
+fungus <- rbinom(N, size = 1, prob = 0.5 - treatment*0.4 + 0.4*M)
+h1 <- h0 + rnorm(N, 5 + 3*M)
+
+d2 <- data.frame(h0 = h0,
+                h1 = h1,
+                treatment = treatment,
+                fungus = fungus)
+```
+
+```{r 6.20b}
+plant_dagb <- dagitty("dag{M[u]
+                     H0 -> H1 <- M -> F <- T}")
+
+coordinates(plant_dag) <- list(
+  x = c(H0 = 0,
+        H1 = 0.1,
+        M = 0.5,
+        F = 0.5,
+        T = 0.5),
+  y = c(H0 = 0,
+        H1 = 0,
+        M = 2,
+        F = 0,
+        T = 0)
+)
+
+drawdag(plant_dagb)
+```
+
+
+```{r 6.20c}
+m6.6b <- quap(
+  alist(
+    h1 ~ dnorm(mu, sigma),
+    mu <- h0 * p,
+    p ~ dlnorm(0, 0.25),
+    sigma ~ dexp(1)
+  ), data = d2
+)
+
+precis(m6.6b)
+```
+```{r 6.20d}
+m6.7b <- quap(
+  alist(
+    h1 ~ dnorm(mu, sigma),
+    mu <- h0 * p,
+    p <- a + bT * treatment + bF * fungus,
+    a ~ dlnorm(0, 0.25),
+    bT ~ dnorm(0, 0.5),
+    bF ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d2
+)
+
+precis(m6.7b)
+```
+```{r 6.20e}
+m6.8b <- quap(
+  alist(
+    h1 ~ dnorm(mu, sigma),
+    mu <- h0 * p,
+    p <- a + bT * treatment,
+    a ~ dlnorm(0, 0.25),
+    bT ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d2
+)
+
+precis(m6.8b)
+```
+## Collider Bias
+```{r 6.21}
+d <- sim_happiness(seed = 1977, N_years = 1000)
+precis(d)
+```
+```{r 6.22}
+d2 <- d[d$age > 17,] # Only adults
+d2$A <- (d2$age - 18)/(65 - 18) # Standardize 0 - 1
+```
+
+```{r 6.23}
+d2$mid <- d2$married + 1
+
+m6.9 <- quap(
+  alist(
+    happiness ~ dnorm(mu, sigma),
+    mu <- a[mid] + bA * A,
+    a[mid] ~ dnorm(0,1),
+    bA ~ dnorm(0,2),
+    sigma ~ dexp(1)
+  ), data = d2
+)
+
+precis(m6.9, depth = 2)
+```
+
+```{r 6.24}
+m6.10 <- quap(
+  alist(
+    happiness ~ dnorm(mu, sigma),
+    mu <- a + bA * A,
+    a ~ dnorm(0,1),
+    bA ~ dnorm(0,2),
+    sigma ~ dexp(1)
+  ), data = d2
+)
+
+precis(m6.10)
+```
+### The Haunted DAG
+```{r}
+daggcp1 <- dagitty("dag{G -> P; P -> C; G -> C}")
+
+drawdag(daggcp1)
+```
+```{r}
+daggcp2 <- dagitty("dag{U[u]
+G -> P; P -> C; G -> C; U -> P; U -> C}")
+
+drawdag(daggcp2)
+```
+
+Simulate the second DAG
+```{r 6.25}
+N <- 200
+b_GP <- 1 # direct effect of G on P
+b_GC <- 0 # direct effect of G on C
+b_PC <- 1 # direct effect of P on C
+b_U <- 2 # direct effect of U on P and C
+```
+
+```{r 6.26}
+set.seed(1)
+
+U <- 2*rbern(N, 0.5) - 1
+G <- rnorm(N)
+P <- rnorm(N, b_GP*G + b_U*U)
+C <- rnorm(N, b_PC*P + b_GC*G + b_U*U)
+
+d <- data.frame(C=C, P=P, G=G, U=U)
+```
+
+```{r 6.27}
+m6.11 <- quap(
+  alist(
+    C ~ dnorm(mu, sigma),
+    mu <- a + b_PC*P + b_GC*G,
+    a ~ dnorm(0,1),
+    c(b_PC, b_GC) ~ dnorm(0,1),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.11)
+```
+```{r 6.28}
+m6.12 <- quap(
+  alist(
+    C ~ dnorm(mu, sigma),
+    mu <- a + b_PC*P + b_GC*G + bU_U*U,
+    a ~ dnorm(0,1),
+    c(b_PC, b_GC, bU_U) ~ dnorm(0,1),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m6.12)
 ```
 
 
