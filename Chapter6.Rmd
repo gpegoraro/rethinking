@@ -1,6 +1,6 @@
 ---
 title: "Chapter 6"
-output: html_document
+output: github_document
 ---
 ## 6.1 Multicollinearity
 ### 6.1.1 Multicollinear legs

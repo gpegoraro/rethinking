@@ -1,6 +1,6 @@
 ---
-title: "Chapter4"
-output: html_document
+title: "Rethinking Chapter4"
+output: github_document
 ---
 
 ```{r 4.7}
