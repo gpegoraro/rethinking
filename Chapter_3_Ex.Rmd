@@ -3,11 +3,11 @@ title: "Chapter 3 Excercises"
 output: github_document
 ---
 
-Code and solutions for Chapter 3 of the [Statistical Rethinking 2 Ed. ](https://xcelab.net/rm/statistical-rethinking/) textbook by R. McElreath.
+Code and solutions for Chapter 3 of the [Statistical Rethinking 2 Ed.](https://xcelab.net/rm/statistical-rethinking/) textbook by R. McElreath.
 
 ```{r load-packages}
 library(rethinking)
-library(ggplot2)
+library(tidyverse)
 library(ggthemes)
 ```
 
@@ -20,6 +20,351 @@ angle = -45,
 hjust = 0,
 vjust = 0.5
 ))
+```
+
+```{r}
+p_grid <- seq(from = 0, to = 1, length.out = 1000)
+prior <- rep(1, 1000)
+likelihood <- dbinom(6, size = 9, prob = p_grid)
+posterior <- prior * likelihood
+posterior <- posterior / sum(posterior)
+```
+
+```{r}
+tosses <- tibble(p_grid = seq(0, 1, length.out = 1000),
+                 prior = rep(1, 1000),
+                 likelihood = dbinom(6, size = 9, prob = p_grid)) %>%
+  mutate(posterior = prior * likelihood) %>%
+  mutate(posterior = posterior /sum(posterior))
+
+glimpse(tosses)
+```
+
+```{r}
+tosses %>%
+  ggplot(aes(x = p_grid, y = prior)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Prior Distribution") 
+```
+
+```{r}
+tosses %>%
+  ggplot(aes(x = p_grid, y = likelihood)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Likelihood Distribution") 
+```
+
+```{r}
+tosses %>%
+  ggplot(aes(x = p_grid, y = posterior)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Posterior Distribution") 
+```
+
+```{r}
+set.seed(100)
+
+n_samples <- 1e4
+
+p_samples <- tosses %>%
+  slice_sample(n = n_samples,
+               weight_by = posterior,
+               replace = T)
+
+glimpse(p_samples)
+```
+
+```{r}
+p_samples %>%
+  ggplot(aes(p_grid)) +
+  geom_density() +
+  labs(x = "p Water",
+       title = "Posterior Samples Distribution")
+```
+
+### 3E1
+
+```{r}
+p_samples %>%
+  summarise(p_less_point2 = mean(p_grid < 0.2))
+```
+
+### 3E2
+
+```{r}
+p_samples %>%
+  summarise(p_less_point8 = mean(p_grid < 0.8))
+```
+
+### 3E3
+
+```{r}
+p_samples %>%
+  summarise(p_between_point2_point_8 = mean(p_grid > 0.2 & p_grid < 0.8))
+```
+
+### 3E4
+
+```{r}
+p_samples %>%
+  summarise(p_20_below = quantile(p_grid, 0.2))
+```
+
+### 3E5
+
+```{r}
+p_samples %>%
+  summarise(p_20_above = quantile(p_grid, 0.8))
+```
+
+### 3E6
+
+```{r}
+p_samples %>%
+  summarise(p_hdpi_66 = HPDI(p_grid, 0.66))
+```
+
+### 3M1
+
+```{r}
+tosses_2 <- tibble(p_grid = seq(0, 1, length.out = 1000),
+                 prior = rep(1, 1000),
+                 likelihood = dbinom(8, size = 15, prob = p_grid)) %>%
+  mutate(posterior = prior * likelihood) %>%
+  mutate(posterior = posterior /sum(posterior))
+
+glimpse(tosses_2)
+```
+
+```{r}
+tosses_2 %>%
+  ggplot(aes(x = p_grid, y = likelihood)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Likelihood Distribution 2") 
+```
+
+```{r}
+tosses_2 %>%
+  ggplot(aes(x = p_grid, y = posterior)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Posterior Distribution 2") 
+```
+
+### 3M2
+
+```{r}
+p_samples_2 <- tosses_2 %>%
+  slice_sample(n = n_samples,
+               weight_by = posterior,
+               replace = T)
+
+glimpse(p_samples_2)
+```
+
+```{r}
+p_samples_2 %>%
+  summarise(p_hdpi_90 = HPDI(p_grid, 0.9))
+```
+
+### 3M3
+
+```{r}
+p_samples_2 <- p_samples_2 %>%
+  mutate(n_water_15 = rbinom(n_samples, 15, p_grid))
+
+glimpse(p_samples_2)
+```
+
+```{r}
+p_samples_2 %>%
+  summarise(p_water_8 = mean(n_water_15 == 8))
+```
+
+### 3M4
+
+```{r}
+p_samples_2 %>%
+  mutate(n_water_9 = rbinom(n_samples, 9, p_grid)) %>%
+  summarise(p_water_6 = mean(n_water_9 == 6))
+```
+
+## 3M5
+
+```{r}
+tosses_3 <- tibble(p_grid = seq(0, 1, length.out = 1000),
+                   prior = ifelse(p_grid < 0.5, 0, 1),
+                   likelihood = dbinom(6, size = 9, prob = p_grid)) %>%
+  mutate(posterior = prior * likelihood) %>%
+  mutate(posterior = posterior /sum(posterior))
+
+glimpse(tosses_3)
+```
+
+```{r}
+tosses_3 %>%
+  ggplot(aes(x = p_grid, y = prior)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Prior Distribution") 
+```
+
+```{r}
+tosses_3 %>%
+  ggplot(aes(x = p_grid, y = likelihood)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Likelihood Distribution") 
+```
+
+```{r}
+tosses_3 %>%
+  ggplot(aes(x = p_grid, y = posterior)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Posterior Distribution") 
+```
+
+```{r}
+set.seed(100)
+
+p_samples_3 <- tosses_3 %>%
+  slice_sample(n = n_samples,
+               weight_by = posterior,
+               replace = T)
+
+glimpse(p_samples_3)
+```
+
+```{r}
+p_samples_3 %>%
+  ggplot(aes(p_grid)) +
+  geom_density() +
+  scale_x_continuous(lim = c(0,1)) +
+  labs(x = "p Water",
+       title = "Posterior Samples Distribution")
+```
+
+### 3E1-bis
+
+```{r}
+p_samples_3 %>%
+  summarise(p_less_point2 = mean(p_grid < 0.2))
+```
+
+### 3E2-bis
+
+```{r}
+p_samples_3 %>%
+  summarise(p_less_point8 = mean(p_grid < 0.8))
+```
+
+### 3E3-bis
+
+```{r}
+p_samples_3 %>%
+  summarise(p_between_point2_point_8 = mean(p_grid > 0.2 & p_grid < 0.8))
+```
+
+### 3E4-bis
+
+```{r}
+p_samples_3 %>%
+  summarise(p_20_below = quantile(p_grid, 0.2))
+```
+
+### 3E5-bis
+
+```{r}
+p_samples_3 %>%
+  summarise(p_20_above = quantile(p_grid, 0.8))
+```
+
+### 3E6-bis
+
+```{r}
+p_samples_3 %>%
+  summarise(p_hdpi_66 = HPDI(p_grid, 0.66))
+```
+
+### 3M1 - bis
+
+```{r}
+tosses_4 <- tibble(p_grid = seq(0, 1, length.out = 1000),
+                   prior = ifelse(p_grid < 0.5, 0, 1),
+                   likelihood = dbinom(8, size = 15, prob = p_grid)) %>%
+  mutate(posterior = prior * likelihood) %>%
+  mutate(posterior = posterior /sum(posterior))
+
+glimpse(tosses_4)
+```
+
+```{r}
+tosses_4 %>%
+  ggplot(aes(x = p_grid, y = likelihood)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Likelihood Distribution 2") 
+```
+
+```{r}
+tosses_4 %>%
+  ggplot(aes(x = p_grid, y = posterior)) +
+  geom_line() +
+  labs(x = "p Water",
+       y = "Density",
+       title = "Posterior Distribution 2") 
+```
+
+### 3M2 - bis
+
+```{r}
+p_samples_4 <- tosses_4 %>%
+  slice_sample(n = n_samples,
+               weight_by = posterior,
+               replace = T)
+
+glimpse(p_samples_4)
+```
+
+```{r}
+p_samples_4 %>%
+  summarise(p_hdpi_90 = HPDI(p_grid, 0.9))
+```
+
+### 3M3 - bis
+
+```{r}
+p_samples_4 <- p_samples_4 %>%
+  mutate(n_water_15 = rbinom(n_samples, 15, p_grid))
+
+glimpse(p_samples_4)
+```
+
+```{r}
+p_samples_4 %>%
+  summarise(p_water_8 = mean(n_water_15 == 8))
+```
+
+### 3M4 - bis
+
+```{r}
+p_samples_4 %>%
+  mutate(n_water_9 = rbinom(n_samples, 9, p_grid)) %>%
+  summarise(p_water_6 = mean(n_water_9 == 6))
 ```
 
 Document the information about the analysis session
