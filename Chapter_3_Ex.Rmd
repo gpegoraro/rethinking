@@ -1,0 +1,29 @@
+---
+title: "Chapter 3 Excercises"
+output: github_document
+---
+
+Code and solutions for Chapter 3 of the [Statistical Rethinking 2 Ed. ](https://xcelab.net/rm/statistical-rethinking/) textbook by R. McElreath.
+
+```{r load-packages}
+library(rethinking)
+library(ggplot2)
+library(ggthemes)
+```
+
+Set the palette and the running theme for ggplot2.
+
+```{r set-theme-palette}
+theme_set(theme_bw())
+theme_update(axis.text.x = element_text(
+angle = -45,
+hjust = 0,
+vjust = 0.5
+))
+```
+
+Document the information about the analysis session
+
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```
