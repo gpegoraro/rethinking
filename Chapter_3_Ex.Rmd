@@ -22,6 +22,8 @@ vjust = 0.5
 ))
 ```
 
+## Easy
+
 ```{r}
 p_grid <- seq(from = 0, to = 1, length.out = 1000)
 prior <- rep(1, 1000)
@@ -130,6 +132,8 @@ p_samples %>%
   summarise(p_hdpi_66 = HPDI(p_grid, 0.66))
 ```
 
+## Medium
+
 ### 3M1
 
 ```{r}
@@ -198,7 +202,7 @@ p_samples_2 %>%
   summarise(p_water_6 = mean(n_water_9 == 6))
 ```
 
-## 3M5
+# \#\# 3M5
 
 ```{r}
 tosses_3 <- tibble(p_grid = seq(0, 1, length.out = 1000),
@@ -365,6 +369,141 @@ p_samples_4 %>%
 p_samples_4 %>%
   mutate(n_water_9 = rbinom(n_samples, 9, p_grid)) %>%
   summarise(p_water_6 = mean(n_water_9 == 6))
+```
+
+## Hard
+
+```{r}
+data(homeworkch3)
+
+birth_data <- tibble(first = birth1,
+                 second = birth2) 
+birth_data %>%
+  summarize(across(first:second, list(sum = sum)))
+```
+
+### 3H1
+
+```{r}
+births <- tibble(
+  p_grid = seq(from = 0, to = 1, length.out = 1000),
+  prior = rep(1, 1000),
+  likelihood = dbinom(x = 111, size = 200, prob = p_grid)
+) %>%
+  mutate(posterior = prior*likelihood) %>%
+  mutate(posterior = posterior/sum(posterior))
+
+glimpse(births)
+```
+
+```{r}
+births %>%
+  ggplot(aes(x = p_grid, y = prior)) +
+  geom_line() +
+  labs(x = "p Male",
+       y = "Density",
+       title = "Prior Distribution") 
+```
+
+```{r}
+births %>%
+  ggplot(aes(x = p_grid, y = likelihood)) +
+  geom_line() +
+  labs(x = "p Male",
+       y = "Density",
+       title = "Likelihood Distribution") 
+```
+
+```{r}
+births %>%
+  ggplot(aes(x = p_grid, y = posterior)) +
+  geom_line() +
+  labs(x = "p Male",
+       y = "Density",
+       title = "Posterior Distribution") 
+```
+
+```{r}
+births %>%
+  slice(which.max(posterior))
+```
+
+### 3H2
+
+```{r}
+set.seed(100)
+
+birth_samples <- births %>%
+  slice_sample(n = n_samples, 
+               weight_by = posterior,
+               replace = TRUE)
+
+glimpse(birth_samples)
+```
+
+```{r}
+birth_samples %>%
+  summarize(HPDI_50 = HPDI(p_grid, 0.50),
+            HPDI_89 = HPDI(p_grid, 0.89),
+            HPDI_97 = HPDI(p_grid, 0.97))
+```
+
+### 3H3
+
+```{r}
+birth_samples_200 <- birth_samples %>%
+  mutate(n_male = rbinom(n_samples, 200, p_grid))
+
+glimpse(birth_samples_200)
+```
+
+```{r}
+birth_samples_200 %>%
+  ggplot(aes(n_male)) +
+  geom_histogram(binwidth = 2,
+                 fill = "black",
+                 color = "white")
+```
+
+### 3H4
+
+```{r}
+birth_samples_100 <- birth_samples %>%
+  mutate(n_male = rbinom(n_samples, 100, p_grid))
+
+glimpse(birth_samples_100)
+```
+
+```{r}
+birth_samples_100 %>%
+  ggplot(aes(n_male)) +
+  geom_histogram(binwidth = 2,
+                 fill = "black",
+                 color = "white")
+```
+
+### 3H5
+
+```{r}
+birth_data %>%
+  filter(first == 0) %>%
+  summarise(n_tot = n(),
+            n_girls_boys = sum(second))
+```
+
+```{r}
+birth_samples_g_b <- birth_samples %>%
+  mutate(n_male = rbinom(n_samples, 49, p_grid))
+
+glimpse(birth_samples_100)
+```
+
+```{r}
+birth_samples_g_b %>%
+  ggplot(aes(n_male)) +
+  geom_histogram(binwidth = 2,
+                 fill = "black",
+                 color = "white")
 ```
 
 Document the information about the analysis session

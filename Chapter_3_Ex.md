@@ -65,6 +65,8 @@ vjust = 0.5
 ))
 ```
 
+## Easy
+
 ``` r
 p_grid <- seq(from = 0, to = 1, length.out = 1000)
 prior <- rep(1, 1000)
@@ -226,6 +228,8 @@ p_samples %>%
     ## 1     0.509
     ## 2     0.774
 
+## Medium
+
 ### 3M1
 
 ``` r
@@ -336,7 +340,7 @@ p_samples_2 %>%
     ##       <dbl>
     ## 1     0.175
 
-## 3M5
+# \#\# 3M5
 
 ``` r
 tosses_3 <- tibble(p_grid = seq(0, 1, length.out = 1000),
@@ -599,6 +603,212 @@ p_samples_4 %>%
     ##   p_water_6
     ##       <dbl>
     ## 1     0.228
+
+## Hard
+
+``` r
+data(homeworkch3)
+
+birth_data <- tibble(first = birth1,
+                 second = birth2) 
+birth_data %>%
+  summarize(across(first:second, list(sum = sum)))
+```
+
+    ## # A tibble: 1 × 2
+    ##   first_sum second_sum
+    ##       <dbl>      <dbl>
+    ## 1        51         60
+
+### 3H1
+
+``` r
+births <- tibble(
+  p_grid = seq(from = 0, to = 1, length.out = 1000),
+  prior = rep(1, 1000),
+  likelihood = dbinom(x = 111, size = 200, prob = p_grid)
+) %>%
+  mutate(posterior = prior*likelihood) %>%
+  mutate(posterior = posterior/sum(posterior))
+
+glimpse(births)
+```
+
+    ## Rows: 1,000
+    ## Columns: 4
+    ## $ p_grid     <dbl> 0.000000000, 0.001001001, 0.002002002, 0.003003003, 0.00400…
+    ## $ prior      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+    ## $ likelihood <dbl> 0.000000e+00, 2.769971e-275, 6.577422e-242, 2.115424e-222, …
+    ## $ posterior  <dbl> 0.000000e+00, 5.573215e-276, 1.323385e-242, 4.256259e-223, …
+
+``` r
+births %>%
+  ggplot(aes(x = p_grid, y = prior)) +
+  geom_line() +
+  labs(x = "p Male",
+       y = "Density",
+       title = "Prior Distribution") 
+```
+
+![](Chapter_3_Ex_files/figure-gfm/unnamed-chunk-44-1.png)<!-- -->
+
+``` r
+births %>%
+  ggplot(aes(x = p_grid, y = likelihood)) +
+  geom_line() +
+  labs(x = "p Male",
+       y = "Density",
+       title = "Likelihood Distribution") 
+```
+
+![](Chapter_3_Ex_files/figure-gfm/unnamed-chunk-45-1.png)<!-- -->
+
+``` r
+births %>%
+  ggplot(aes(x = p_grid, y = posterior)) +
+  geom_line() +
+  labs(x = "p Male",
+       y = "Density",
+       title = "Posterior Distribution") 
+```
+
+![](Chapter_3_Ex_files/figure-gfm/unnamed-chunk-46-1.png)<!-- -->
+
+``` r
+births %>%
+  slice(which.max(posterior))
+```
+
+    ## # A tibble: 1 × 4
+    ##   p_grid prior likelihood posterior
+    ##    <dbl> <dbl>      <dbl>     <dbl>
+    ## 1  0.555     1     0.0567    0.0114
+
+### 3H2
+
+``` r
+set.seed(100)
+
+birth_samples <- births %>%
+  slice_sample(n = n_samples, 
+               weight_by = posterior,
+               replace = TRUE)
+
+glimpse(birth_samples)
+```
+
+    ## Rows: 10,000
+    ## Columns: 4
+    ## $ p_grid     <dbl> 0.5465465, 0.5635636, 0.5145145, 0.5465465, 0.5245245, 0.46…
+    ## $ prior      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+    ## $ likelihood <dbl> 0.055078285, 0.055028347, 0.029361486, 0.055078285, 0.03902…
+    ## $ posterior  <dbl> 0.011081817, 0.011071769, 0.005907566, 0.011081817, 0.00785…
+
+``` r
+birth_samples %>%
+  summarize(HPDI_50 = HPDI(p_grid, 0.50),
+            HPDI_89 = HPDI(p_grid, 0.89),
+            HPDI_97 = HPDI(p_grid, 0.97))
+```
+
+    ## # A tibble: 2 × 3
+    ##   HPDI_50 HPDI_89 HPDI_97
+    ##     <dbl>   <dbl>   <dbl>
+    ## 1   0.527   0.499   0.482
+    ## 2   0.573   0.608   0.630
+
+### 3H3
+
+``` r
+birth_samples_200 <- birth_samples %>%
+  mutate(n_male = rbinom(n_samples, 200, p_grid))
+
+glimpse(birth_samples_200)
+```
+
+    ## Rows: 10,000
+    ## Columns: 5
+    ## $ p_grid     <dbl> 0.5465465, 0.5635636, 0.5145145, 0.5465465, 0.5245245, 0.46…
+    ## $ prior      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+    ## $ likelihood <dbl> 0.055078285, 0.055028347, 0.029361486, 0.055078285, 0.03902…
+    ## $ posterior  <dbl> 0.011081817, 0.011071769, 0.005907566, 0.011081817, 0.00785…
+    ## $ n_male     <int> 106, 114, 103, 103, 102, 99, 104, 105, 106, 113, 101, 108, …
+
+``` r
+birth_samples_200 %>%
+  ggplot(aes(n_male)) +
+  geom_histogram(binwidth = 2,
+                 fill = "black",
+                 color = "white")
+```
+
+![](Chapter_3_Ex_files/figure-gfm/unnamed-chunk-51-1.png)<!-- -->
+
+### 3H4
+
+``` r
+birth_samples_100 <- birth_samples %>%
+  mutate(n_male = rbinom(n_samples, 100, p_grid))
+
+glimpse(birth_samples_100)
+```
+
+    ## Rows: 10,000
+    ## Columns: 5
+    ## $ p_grid     <dbl> 0.5465465, 0.5635636, 0.5145145, 0.5465465, 0.5245245, 0.46…
+    ## $ prior      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+    ## $ likelihood <dbl> 0.055078285, 0.055028347, 0.029361486, 0.055078285, 0.03902…
+    ## $ posterior  <dbl> 0.011081817, 0.011071769, 0.005907566, 0.011081817, 0.00785…
+    ## $ n_male     <int> 65, 55, 46, 57, 42, 44, 40, 53, 52, 46, 47, 62, 48, 65, 67,…
+
+``` r
+birth_samples_100 %>%
+  ggplot(aes(n_male)) +
+  geom_histogram(binwidth = 2,
+                 fill = "black",
+                 color = "white")
+```
+
+![](Chapter_3_Ex_files/figure-gfm/unnamed-chunk-53-1.png)<!-- -->
+
+### 3H5
+
+``` r
+birth_data %>%
+  filter(first == 0) %>%
+  summarise(n_tot = n(),
+            n_girls_boys = sum(second))
+```
+
+    ## # A tibble: 1 × 2
+    ##   n_tot n_girls_boys
+    ##   <int>        <dbl>
+    ## 1    49           39
+
+``` r
+birth_samples_g_b <- birth_samples %>%
+  mutate(n_male = rbinom(n_samples, 49, p_grid))
+
+glimpse(birth_samples_100)
+```
+
+    ## Rows: 10,000
+    ## Columns: 5
+    ## $ p_grid     <dbl> 0.5465465, 0.5635636, 0.5145145, 0.5465465, 0.5245245, 0.46…
+    ## $ prior      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+    ## $ likelihood <dbl> 0.055078285, 0.055028347, 0.029361486, 0.055078285, 0.03902…
+    ## $ posterior  <dbl> 0.011081817, 0.011071769, 0.005907566, 0.011081817, 0.00785…
+    ## $ n_male     <int> 65, 55, 46, 57, 42, 44, 40, 53, 52, 46, 47, 62, 48, 65, 67,…
+
+``` r
+birth_samples_g_b %>%
+  ggplot(aes(n_male)) +
+  geom_histogram(binwidth = 2,
+                 fill = "black",
+                 color = "white")
+```
+
+![](Chapter_3_Ex_files/figure-gfm/unnamed-chunk-56-1.png)<!-- -->
 
 Document the information about the analysis session
 
