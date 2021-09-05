@@ -5,16 +5,38 @@ output: github_document
 
 ```{r 4.7}
 library(rethinking)
+library(tidyverse)
+library(ggthemes)
+```
+
+```{r set-theme-palette}
+theme_set(theme_bw())
+theme_update(axis.text.x = element_text(
+angle = -45,
+hjust = 0,
+vjust = 0.5
+))
+```
+
+```{r 4.8}
+set.seed(42)
+
 data(Howell1)
 d <- Howell1
-```
-```{r 4.8}
+
 str(d)
 ```
 
 ```{r 4.9}
 precis(d)
 ```
+
+```{r}
+san_table <- tibble(d)
+
+glimpse(san_table)
+```
+
 ```{r 4.10}
 d$height
 ```
@@ -23,23 +45,78 @@ d$height
 d2 <- d[d$age >= 18,]
 ```
 
+```{r}
+adult_table <- san_table %>%
+  filter(age >= 18)
+
+glimpse(adult_table)
+```
+
 ```{r 4.12}
 curve(dnorm(x, 178, 20), from = 100, to = 250)
 ```
+
 ```{r 4.13}
 curve(dunif(x, 0, 50), from = -10, to = 60)
 ```
+
+```{r}
+ggplot() +
+  xlim(c(100, 250)) +
+  geom_function(fun = dnorm, 
+                args = list(mean = 178, sd = 20))
+```
+
+```{r}
+ggplot() +
+  xlim(c(-10, 60)) +
+  geom_function(fun = dunif, 
+                args = list(min = 0, max = 50))
+```
+
 ```{r 4.14}
 sample_mu <- rnorm(1e4, 178, 20)
 sample_sigma <- runif(1e4, 0, 50)
 prior_h <- rnorm(1e4, sample_mu, sample_sigma)
 dens(prior_h)
 ```
+
+```{r}
+prior_sim <- tibble(mu = rnorm(1e4, 178, 20),
+                    sigma = runif(1e4, 0, 50)) %>%
+  mutate(height = rnorm(1e4, mean = mu, sd = sigma))
+
+glimpse(prior_sim)
+```
+
+```{r}
+prior_sim %>%
+  ggplot(aes(x = height)) +
+  geom_density() +
+  geom_vline(xintercept = c(0, 272),
+             linetype = "longdash",
+             color = "darkred")
+```
+
 ```{r 4.15}
 sample_mu <- rnorm(1e4, 178, 100)
 prior_h <- rnorm(1e4, sample_mu, sample_sigma)
 dens(prior_h)
 ```
+
+```{r}
+prior_sim <- tibble(mu = rnorm(1e4, 178, 20),
+                    sigma = runif(1e4, 0, 100)) %>%
+  mutate(height = rnorm(1e4, mean = mu, sd = sigma))
+
+prior_sim %>%
+  ggplot(aes(x = height)) +
+  geom_density() +
+  geom_vline(xintercept = c(0, 272),
+             linetype = "longdash",
+             color = "darkred")
+```
+
 ```{r 4.16}
 mu.list <- seq(from = 150, to = 160, length.out = 100)
 sigma.list <- seq(from = 7, to = 9, length.out = 100)
@@ -50,13 +127,64 @@ post$LL <- sapply(1:nrow(post), function(i) sum(dnorm(d2$height, post$mu[i], pos
 post$prod <- post$LL + dnorm(post$mu, 178, 20, TRUE) + dunif(post$sigma, 0, 50, TRUE)
 
 post$prob <- exp(post$prod - max(post$prod))
+
+post
+```
+
+Tidy approach described in the [translation of the book to the tidyverse and brms](https://bookdown.org/content/4857/geocentric-models.html#a-gaussian-model-of-height)
+
+```{r}
+grid_function <- function(mu, sigma) {
+  
+  dnorm(d2$height, mean = mu, sd = sigma, log = T) %>% 
+    sum()
+}
+
+d_grid <-
+  crossing(mu = seq(from = 150, to = 160, length.out = 100),
+            sigma = seq(from = 7, to = 9, length.out = 100)) %>% 
+  mutate(log_likelihood = map2(mu, sigma, grid_function)) %>%
+  unnest(log_likelihood) %>% 
+  mutate(prior_mu    = dnorm(mu, mean = 178, sd = 20, log = T),
+         prior_sigma = dunif(sigma, min = 0, max = 50, log = T)) %>% 
+  mutate(product = log_likelihood + prior_mu + prior_sigma) %>% 
+  mutate(probability = exp(product - max(product)))
+  
+glimpse(d_grid)
+```
+
+Alternative approach that uses `dplyr::rowwise` instead of `purrr::map2`.
+
+```{r}
+d_post <- crossing(mu = seq(from = 150, to = 160, length.out = 100),
+            sigma = seq(from = 7, to = 9, length.out = 100)) %>%
+  rowwise() %>%
+  mutate(LL = dnorm(d2$height, mean = mu, sd = sigma, log = T) %>%
+         sum()) %>%
+  ungroup() %>%
+  mutate(prior_mu = dnorm(mu, mean = 178, sd = 20, log = T),
+         prior_sigma = dunif(sigma, min = 0, max = 50, log = T)) %>%
+  mutate(prod = LL + prior_mu + prior_sigma) %>%
+  mutate(prob = exp(prod - max(prod)))
+
+glimpse(d_post)
 ```
 
 ```{r 4.17}
 contour_xyz(post$mu, post$sigma, post$prob)
 ```
+
 ```{r 4.18}
 image_xyz(post$mu, post$sigma, post$prob)
+```
+
+```{r}
+d_post %>%
+  ggplot(aes(x = mu, 
+             y = sigma,
+             color = prob)) +
+  geom_point() +
+  scale_color_viridis_c(name = "Density")
 ```
 
 ```{r 4.19}
@@ -76,14 +204,47 @@ plot(sample.mu,
      pch = 16,
      col = col.alpha(rangi2, 0.1))
 ```
+
 ```{r 4.21}
 dens(sample.mu)
 dens(sample.sigma)
 ```
+
 ```{r 4.22}
 PI(sample.mu)
 PI(sample.sigma)
 ```
+
+```{r}
+d_samples <- d_post %>%
+  slice_sample(n = 1e4, 
+               weight_by = prob, 
+               replace = TRUE)
+
+glimpse(d_samples)
+```
+```{r}
+d_samples %>%
+  ggplot(aes(x = mu, y = sigma)) +
+  geom_jitter(alpha = 0.2,
+              position = position_jitter(width = 0.05))
+```
+```{r}
+d_samples %>%
+  ggplot(aes(x = mu)) +
+  geom_density()
+```
+```{r}
+d_samples %>%
+  ggplot(aes(x = sigma)) +
+  geom_density()
+```
+```{r}
+d_samples %>%
+  summarise(mu_PI = PI(mu),
+            sigma_PI = PI(sigma))
+```
+
 
 ```{r 4.27}
 flist <- alist(
@@ -100,6 +261,7 @@ m4.1 <- quap(flist, data = d2)
 ```{r 4.29}
 precis(m4.1)
 ```
+
 ```{r 4.31}
 m4.2 <- quap(alist(
   height ~ dnorm(mu, sigma),
@@ -109,17 +271,21 @@ m4.2 <- quap(alist(
 
 precis(m4.2)
 ```
+
 ```{r 4.32}
 vcov(m4.1)
 ```
+
 ```{r 4.33}
 diag(vcov(m4.1))
 cov2cor(vcov(m4.1))
 ```
+
 ```{r 4.34}
 post <- extract.samples(m4.1, n = 1e4)
 head(post)
 ```
+
 ```{r}
 precis(post)
 ```
@@ -127,6 +293,13 @@ precis(post)
 ```{r 4.37}
 plot(d2$height ~ d2$weight)
 ```
+```{r}
+adult_table %>%
+  ggplot(aes(x = weight, y = height)) +
+  geom_point(alpha = 0.5)
+```
+
+
 ```{r 4.38}
 set.seed(2971)
 N <- 100
@@ -148,10 +321,12 @@ for(i in 1:N){
         col = col.alpha("black", 0.2))
 }
 ```
+
 ```{r 4.40}
 b <- rlnorm(1e4, 0, 1)
 dens(b, xlim = c(0,5), adj = 0.1)
 ```
+
 ```{r 4.41}
 set.seed(2971)
 N <- 100
@@ -171,6 +346,7 @@ for(i in 1:N){
         col = col.alpha("black", 0.2))
 }
 ```
+
 ```{r 4.42}
 m4.3 <- quap(
   alist(
@@ -183,12 +359,15 @@ m4.3 <- quap(
   data = d2
 )
 ```
+
 ```{r 4.44}
 precis(m4.3)
 ```
+
 ```{r 4.45}
 round(vcov(m4.3), 3)
 ```
+
 ```{r 4.46}
 plot(height ~ weight, data = d2, col = rangi2)
 post <- extract.samples(m4.3, n = 1e4)
@@ -196,6 +375,7 @@ a_map <- mean(post$a)
 b_map <- mean(post$b)
 curve(a_map + b_map*(x - xbar), add = TRUE)
 ```
+
 ```{r 4.47}
 head(post, 5)
 ```
@@ -204,9 +384,11 @@ head(post, 5)
 mu_at_50 <- post$a + post$b*(50-xbar)
 str(mu_at_50)
 ```
+
 ```{r 4.51}
 dens(mu_at_50, col = rangi2, lwd = 2, xlab = "mu|weight=50")
 ```
+
 ```{r 4.52}
 PI(mu_at_50, prob = 0.89)
 ```
@@ -222,6 +404,7 @@ weight.seq <- 25:70
 mu <- link(m4.3, data = data.frame(weight = weight.seq))
 str(mu)
 ```
+
 ```{r 4.55}
 plot(height ~ weight, data = d2, type = "n")
 
@@ -232,20 +415,24 @@ for(i in 1:100){
          col = col.alpha(rangi2, 0.1))
 }
 ```
+
 ```{r 4.56}
 mu.mean <- apply(mu, 2, mean)
 mu.PI <- apply(mu, 2, PI, prob = 0.89)
 mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
 ```
+
 ```{r 4.57}
 plot(height ~ weight, data = d2, col = rangi2)
 lines(weight.seq, mu.mean)
 shade(mu.PI, weight.seq)
 ```
+
 ```{r 4.59}
 sim.height <- sim(m4.3, data = list(weight = weight.seq))
 str(sim.height)
 ```
+
 ```{r 4.61}
 height.PI <- apply(sim.height, 2, PI, prob = 0.89)
 plot(height ~ weight, data = d2, col = rangi2)
@@ -253,6 +440,7 @@ lines(weight.seq, mu.mean)
 shade(mu.HPDI, weight.seq)
 shade(height.PI, weight.seq)
 ```
+
 ```{r 4.65}
 d$weight_s <- (d$weight - mean(d$weight))/sd(d$weight)
 d$weight_s2 <- d$weight_s^2
@@ -272,6 +460,7 @@ m4.5 <- quap(
 ```{r 4.66}
 precis(m4.5)
 ```
+
 ```{r 4.67}
 weight.seq <- seq(-2.2, 2, length.out = 30)
 pred_dat <- list(weight_s = weight.seq, weight_s2 = weight.seq^2)
@@ -288,6 +477,7 @@ lines(weight.seq, mu.mean)
 shade(mu.PI, weight.seq)
 shade(height.PI, weight.seq)
 ```
+
 ```{r 4.69}
 d$weight_s3 <- d$weight_s^3
 
@@ -307,6 +497,7 @@ m4.6 <- quap(
 ```{r}
 precis(m4.6)
 ```
+
 ```{r}
 weight.seq <- seq(-2.2, 2, length.out = 30)
 pred_dat <- list(weight_s = weight.seq, 
@@ -325,6 +516,7 @@ lines(weight.seq, mu.mean)
 shade(mu.PI, weight.seq)
 shade(height.PI, weight.seq)
 ```
+
 ```{r 4.72}
 data("cherry_blossoms")
 d <- cherry_blossoms
@@ -337,6 +529,7 @@ num_knots <- 15
 knot_list <- quantile(d2$year, 
                       probs = seq(0, 1, length.out = num_knots))
 ```
+
 ```{r 4.74}
 library(splines)
 B <- bs(d2$year,
@@ -346,6 +539,7 @@ B <- bs(d2$year,
 
 str(B)
 ```
+
 ```{r 4.75}
 plot(NULL, 
      xlim = range(d2$year), 
@@ -357,6 +551,7 @@ for(i in 1:ncol(B)) {
   lines(d2$year, B[,i])
 }
 ```
+
 ```{r 4.76}
 m4.7 <- quap(
   alist(
@@ -370,14 +565,15 @@ m4.7 <- quap(
   start = list(w = rep(0, ncol(B)))
 )
 ```
+
 ```{r 4.77}
 post <- extract.samples(m4.7)
 precis(post, depth = 2)
 ```
+
 ```{r 4.77b}
 str(post)
 ```
-
 
 ```{r 4.77c}
 w <- apply(post$w, 2, mean)
@@ -387,6 +583,7 @@ for(i in 1:ncol(B)){
   lines(d2$year, w[i]*B[,i])
 }
 ```
+
 ```{r 4.78}
 mu <- link(m4.7)
 mu_PI <- apply(mu, 2, PI, 0.97)
@@ -400,13 +597,8 @@ shade(mu_PI,
       col = col.alpha("black", 0.5))
 ```
 
+Document the information about the analysis session
 
-
-
-
-
-
-
-
-
-
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```
