@@ -24,7 +24,319 @@ vjust = 0.5
 
 ## Easy
 
+### 4E1
+
+Line 1
+
+### 4E2
+
+2
+
+### 4E3
+
+$$ Pr(mu, sigma\|h) = Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0, 10)\*Exponential(sigma\| 1)) \\ Integral Integral Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0, 10)\*Exponential(sigma\| 1)) dmu dgamma $$
+
+### 4E4
+
+Line 2
+
+### 4E5
+
+3
+
 ## Medium
+
+### 4M1
+
+```{r}
+set.seed(42)
+
+n_samples <- 1e4
+
+ex4M1 <- tibble(
+  mu = rnorm(n_samples, 0, 10),
+  sigma = rexp(n_samples, 1)
+) %>%
+  mutate(y = rnorm(n_samples, mu, sigma))
+
+glimpse(ex4M1)
+```
+
+```{r}
+ex4M1 %>%
+  ggplot(aes(x = y)) +
+  geom_density()
+```
+
+### 4M2
+
+```{r}
+ex4M2_formula <- alist(
+  y ~ dnorm(mu, sigma),
+  mu ~ dnorm(0, 10),
+  sigma ~ dexp(1)
+)
+```
+
+### 4M3
+
+y-i \~ Normal(mu-i, sigma)
+
+mu-i = a + b \* w-i
+
+a \~ Normal(0, 10)
+
+b \~ Uniform(0, 1)
+
+sigma \~ Exponential(1)
+
+### 4M4
+
+height-i \~ Normal(mu-i, sigma)
+
+mu-i = a + b \* year-i
+
+a = Normal(178, 20)
+
+b = Log-Normal(0, 1)
+
+sigma = Uniform(0, 50)
+
+### 4M5
+
+Same as 4M4
+
+### 4M6
+
+height-i \~ Normal(mu-i, sigma)
+
+mu-i = a + b \* year-i
+
+a = Normal(178, 20)
+
+b = Log-Normal(0, 1)
+
+sigma = Uniform(0, 10)
+
+### 4M7
+
+```{r}
+data(Howell1)
+d <- tibble(Howell1)
+
+d2 <- d %>%
+  filter(age >= 18) %>%
+  mutate(weight_centered = weight - mean(weight))
+
+m4.3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b* weight_centered,
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0,50)), 
+  data = d2)
+
+m4.3bis <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b* weight,
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0,50)),
+  data = d2)
+```
+
+```{r}
+precis(m4.3)
+```
+
+```{r}
+round(vcov(m4.3), 3)
+```
+
+```{r}
+precis(m4.3bis)
+```
+
+```{r}
+round(vcov(m4.3bis), 3)
+```
+
+```{r}
+n_samples <- 1e4
+n_grid <- 100
+
+samples_4_3 <- tibble(extract.samples(m4.3, n_samples)) 
+samples_4_3b <- tibble(extract.samples(m4.3bis, n_samples))
+
+grid_4_3 <- seq(from = min(d2$weight_centered), 
+                to = max(d2$weight_centered), 
+                length.out = n_grid)
+
+grid_4_3b <- seq(from = min(d2$weight), 
+                 to = max(d2$weight), 
+                 length.out = n_grid)
+
+params_mean_4_3 <- samples_4_3 %>%
+  summarise(across(everything(), mean))
+
+params_mean_4_3b <- samples_4_3b %>%
+  summarise(across(everything(), mean))
+```
+
+```{r}
+d2 %>%
+  ggplot(aes(x = weight_centered, y = height)) +
+  geom_point(shape = 21,
+             color = "navyblue") +
+  geom_abline(data = params_mean_4_3,
+              aes(slope = b,
+                  intercept = a))
+```
+
+```{r}
+d2 %>%
+  ggplot(aes(x = weight, y = height)) +
+  geom_point(shape = 21,
+             color = "navyblue") +
+  geom_abline(data = params_mean_4_3b,
+              aes(slope = b,
+                  intercept = a)) +
+  coord_cartesian(xlim = c(-1, 70), ylim = c(-1, 185))
+```
+
+```{r}
+mu_4_3 <- samples_4_3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4_3),
+         weight_centered = list(grid_4_3)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  group_by(weight_centered) %>%
+  summarise(mu_mean = mean(mu),
+            mu_HPDI_89 = list(HPDI(mu))) %>%
+  unnest_wider(mu_HPDI_89)
+
+mu_4_3
+```
+
+```{r}
+mu_4_3 %>%
+  ggplot(aes(x = weight_centered,
+             y = mu_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `|0.89`,
+                  ymax = `0.89|`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d2,
+             aes(x = weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "Weight - Mean Weight",
+       y = "Height")
+```
+
+```{r}
+mu_4_3b <- samples_4_3b %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4_3b),
+         weight = list(grid_4_3b)) %>%
+  unnest(c("mu", "weight")) %>%
+  group_by(weight) %>%
+  summarise(mu_mean = mean(mu),
+            mu_HPDI_89 = list(HPDI(mu))) %>%
+  unnest_wider(mu_HPDI_89)
+
+mu_4_3b
+```
+
+```{r}
+mu_4_3b %>%
+  ggplot(aes(x = weight,
+             y = mu_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `|0.89`,
+                  ymax = `0.89|`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d2,
+             aes(x = weight,
+                y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "Weight",
+       y = "Height")
+```
+
+### 4M8
+
+```{r}
+data("cherry_blossoms")
+d <- cherry_blossoms
+precis(d)
+```
+
+```{r 4.73}
+d2 <- d[complete.cases(d$doy),]
+num_knots <- 15
+knot_list <- quantile(d2$year, 
+                      probs = seq(0, 1, length.out = num_knots))
+```
+
+```{r 4.74}
+library(splines)
+B <- bs(d2$year,
+        knots = knot_list[-c(1, num_knots)],
+        degree = 3,
+        intercept = TRUE)
+
+str(B)
+```
+
+```{r}
+m4.7 <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + B %*% w,
+    a ~ dnorm(100, 10),
+    w ~ dnorm(0,2),
+    sigma ~ dexp(1)
+  ), 
+  data = list(D = d2$doy, B = B),
+  start = list(w = rep(0, ncol(B)))
+)
+```
+
+```{r}
+post <- extract.samples(m4.7)
+precis(post, depth = 2)
+```
+
+```{r}
+str(post)
+```
+
+```{r}
+w <- apply(post$w, 2, mean)
+plot(NULL, xlim = range(d2$year), ylim = c(-6,6),
+     xlab = "year", ylab = "basis * weight")
+for(i in 1:ncol(B)){
+  lines(d2$year, w[i]*B[,i])
+}
+```
+
+```{r}
+mu <- link(m4.7)
+mu_PI <- apply(mu, 2, PI, 0.97)
+
+plot(d2$year, 
+     d2$doy, 
+     col = col.alpha(rangi2, 0.3),
+     pch = 16)
+shade(mu_PI, 
+      d2$year,
+      col = col.alpha("black", 0.5))
+```
 
 ## Hard
 
