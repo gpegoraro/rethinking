@@ -77,7 +77,10 @@ Line 1
 
 ### 4E3
 
-$$ Pr(mu, sigma\\\|h) = Product-i(Normal(h-i\\\|mu, sigma)\\\*Normal(mu\\\| 0, 10)\\\*Exponential(sigma\\\| 1)) \\\\ Integral Integral Product-i(Normal(h-i\\\|mu, sigma)\\\*Normal(mu\\\| 0, 10)\\\*Exponential(sigma\\\| 1)) dmu dgamma $$
+Pr(mu, sigma\|h) = Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0,
+10)\*Exponential(sigma\| 1)) \\ Integral Integral
+Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0,
+10)\*Exponential(sigma\| 1)) dmu dgamma
 
 ### 4E4
 
@@ -288,25 +291,25 @@ mu_4_3 <- samples_4_3 %>%
   unnest(c("mu", "weight_centered")) %>%
   group_by(weight_centered) %>%
   summarise(mu_mean = mean(mu),
-            mu_HPDI_89 = list(HPDI(mu))) %>%
-  unnest_wider(mu_HPDI_89)
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
 
 mu_4_3
 ```
 
     ## # A tibble: 100 × 4
-    ##    weight_centered mu_mean `|0.89` `0.89|`
-    ##              <dbl>   <dbl>   <dbl>   <dbl>
-    ##  1           -13.9    142.    141.    143.
-    ##  2           -13.6    142.    141.    143.
-    ##  3           -13.3    143.    142.    144.
-    ##  4           -13.0    143.    142.    144.
-    ##  5           -12.6    143.    142.    144.
-    ##  6           -12.3    143.    143.    144.
-    ##  7           -12.0    144.    143.    145.
-    ##  8           -11.7    144.    143.    145.
-    ##  9           -11.3    144.    143.    145.
-    ## 10           -11.0    145.    144.    145.
+    ##    weight_centered mu_mean  `5%` `94%`
+    ##              <dbl>   <dbl> <dbl> <dbl>
+    ##  1           -13.9    142.  141.  143.
+    ##  2           -13.6    142.  141.  143.
+    ##  3           -13.3    143.  142.  144.
+    ##  4           -13.0    143.  142.  144.
+    ##  5           -12.6    143.  142.  144.
+    ##  6           -12.3    143.  143.  144.
+    ##  7           -12.0    144.  143.  145.
+    ##  8           -11.7    144.  143.  145.
+    ##  9           -11.3    144.  143.  145.
+    ## 10           -11.0    145.  144.  146.
     ## # … with 90 more rows
 
 ``` r
@@ -314,8 +317,8 @@ mu_4_3 %>%
   ggplot(aes(x = weight_centered,
              y = mu_mean)) +
   geom_line(color = "black") +
-  geom_ribbon(aes(ymin = `|0.89`,
-                  ymax = `0.89|`),
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
               fill = "grey70",
               alpha = 0.3) +
   geom_point(data = d2,
@@ -336,25 +339,25 @@ mu_4_3b <- samples_4_3b %>%
   unnest(c("mu", "weight")) %>%
   group_by(weight) %>%
   summarise(mu_mean = mean(mu),
-            mu_HPDI_89 = list(HPDI(mu))) %>%
-  unnest_wider(mu_HPDI_89)
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
 
 mu_4_3b
 ```
 
     ## # A tibble: 100 × 4
-    ##    weight mu_mean `|0.89` `0.89|`
-    ##     <dbl>   <dbl>   <dbl>   <dbl>
-    ##  1   31.1    142.    141.    143.
-    ##  2   31.4    143.    141.    143.
-    ##  3   31.7    143.    142.    144.
-    ##  4   32.0    143.    142.    144.
-    ##  5   32.4    143.    142.    144.
-    ##  6   32.7    144.    143.    145.
-    ##  7   33.0    144.    143.    145.
-    ##  8   33.3    144.    143.    145.
-    ##  9   33.7    145.    144.    145.
-    ## 10   34.0    145.    144.    146.
+    ##    weight mu_mean  `5%` `94%`
+    ##     <dbl>   <dbl> <dbl> <dbl>
+    ##  1   31.1    142.  141.  143.
+    ##  2   31.4    143.  142.  144.
+    ##  3   31.7    143.  142.  144.
+    ##  4   32.0    143.  142.  144.
+    ##  5   32.4    143.  142.  144.
+    ##  6   32.7    144.  143.  145.
+    ##  7   33.0    144.  143.  145.
+    ##  8   33.3    144.  143.  145.
+    ##  9   33.7    145.  144.  145.
+    ## 10   34.0    145.  144.  146.
     ## # … with 90 more rows
 
 ``` r
@@ -362,13 +365,13 @@ mu_4_3b %>%
   ggplot(aes(x = weight,
              y = mu_mean)) +
   geom_line(color = "black") +
-  geom_ribbon(aes(ymin = `|0.89`,
-                  ymax = `0.89|`),
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
               fill = "grey70",
               alpha = 0.3) +
   geom_point(data = d2,
              aes(x = weight,
-                y = height),
+                 y = height),
              color = "navyblue",
              shape = 21) +
   labs(x = "Weight",
@@ -496,6 +499,209 @@ shade(mu_PI,
 ![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ## Hard
+
+### 3H1
+
+``` r
+d <- tibble(Howell1)
+
+d2 <- d %>%
+  filter(age >= 18)
+
+weight_mean <-   mean(d2$weight)
+
+test <- tibble(individual = 1:5,
+       weight = c(46.95, 43.72, 64.78, 32.59, 54.63)) %>%
+  mutate(weight_centered = weight - weight_mean)
+
+test
+```
+
+    ## # A tibble: 5 × 3
+    ##   individual weight weight_centered
+    ##        <int>  <dbl>           <dbl>
+    ## 1          1   47.0            1.96
+    ## 2          2   43.7           -1.27
+    ## 3          3   64.8           19.8 
+    ## 4          4   32.6          -12.4 
+    ## 5          5   54.6            9.64
+
+``` r
+height_4_3 <- samples_4_3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * test$weight_centered),
+         weight_centered = list(test$weight_centered)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  rowwise() %>%
+  mutate(height = rnorm(1, mu, sigma)) %>%
+  group_by(weight_centered) %>%
+  summarise(height_mean = mean(height),
+            height_PI_89 = list(PI(height))) %>%
+  unnest_wider(height_PI_89)
+
+height_4_3
+```
+
+    ## # A tibble: 5 × 4
+    ##   weight_centered height_mean  `5%` `94%`
+    ##             <dbl>       <dbl> <dbl> <dbl>
+    ## 1          -12.4         143.  135.  152.
+    ## 2           -1.27        153.  145.  162.
+    ## 3            1.96        156.  148.  165.
+    ## 4            9.64        163.  155.  171.
+    ## 5           19.8         172.  164.  181.
+
+### 3H2
+
+``` r
+d3 <- d %>%
+  filter(age < 18) %>%
+  mutate(weight_centered = weight - mean(weight))
+
+glimpse(d3)
+```
+
+    ## Rows: 192
+    ## Columns: 5
+    ## $ height          <dbl> 121.920, 105.410, 86.360, 129.540, 109.220, 137.160, 1…
+    ## $ weight          <dbl> 19.61785, 13.94795, 10.48931, 23.58678, 15.98912, 27.3…
+    ## $ age             <dbl> 12.0, 8.0, 6.5, 13.0, 7.0, 17.0, 16.0, 11.0, 17.0, 8.0…
+    ## $ male            <int> 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, …
+    ## $ weight_centered <dbl> 1.2036609, -4.4662391, -7.9248781, 5.1725909, -2.42507…
+
+``` r
+d3 %>%
+  ggplot(aes(x = weight_centered,
+             y = height)) +
+  geom_point(shape = 21,
+             color = "navyblue")
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+
+``` r
+n_lines <- 100
+
+prior_4H2 <- tibble(
+n = 1: n_lines,
+a = rnorm(n_lines, 120, 20),
+b = rlnorm(n_lines, 0, 0.5)) %>%
+  expand(nesting(n, a, b), weight_centered = range(d3$weight_centered)) %>%
+  mutate(height = a + b * weight_centered)
+
+prior_4H2
+```
+
+    ## # A tibble: 200 × 5
+    ##        n     a     b weight_centered height
+    ##    <int> <dbl> <dbl>           <dbl>  <dbl>
+    ##  1     1  110. 1.20            -14.2   92.6
+    ##  2     1  110. 1.20             26.3  141. 
+    ##  3     2  134. 0.607           -14.2  126. 
+    ##  4     2  134. 0.607            26.3  150. 
+    ##  5     3  100. 0.695           -14.2   90.5
+    ##  6     3  100. 0.695            26.3  119. 
+    ##  7     4  125. 0.605           -14.2  116. 
+    ##  8     4  125. 0.605            26.3  141. 
+    ##  9     5  115. 1.54            -14.2   92.7
+    ## 10     5  115. 1.54             26.3  155. 
+    ## # … with 190 more rows
+
+``` r
+prior_4H2 %>%
+  ggplot(aes(x = weight_centered,
+             y = height,
+             group = n)) +
+  geom_line(alpha = 0.5)
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+
+``` r
+m4H2 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * weight_centered,
+    a ~ dnorm(120, 20),
+    b ~ dlnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ),
+  data = d3
+)
+```
+
+``` r
+precis(m4H2)
+```
+
+    ##             mean         sd       5.5%      94.5%
+    ## a     108.329223 0.59596268 107.376759 109.281686
+    ## b       2.711860 0.06689661   2.604947   2.818774
+    ## sigma   8.261558 0.40864625   7.608462   8.914653
+
+``` r
+round(vcov(m4H2), 3)
+```
+
+    ##           a     b sigma
+    ## a     0.355 0.000 0.000
+    ## b     0.000 0.004 0.000
+    ## sigma 0.000 0.000 0.167
+
+``` r
+grid_4H2 <- seq(from = min(d3$weight_centered), 
+                to = max(d3$weight_centered), 
+                length.out = n_grid)
+
+samples_4H2 <- tibble(extract.samples(m4H2, n_samples))
+```
+
+``` r
+mu_4H2 <- samples_4H2 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H2),
+         weight_centered = list(grid_4H2)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  group_by(weight_centered) %>%
+  summarise(mu_mean = mean(mu),
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
+
+mu_4H2
+```
+
+    ## # A tibble: 100 × 4
+    ##    weight_centered mu_mean  `5%` `94%`
+    ##              <dbl>   <dbl> <dbl> <dbl>
+    ##  1           -14.2    69.9  68.1  71.7
+    ##  2           -13.8    71.0  69.3  72.8
+    ##  3           -13.3    72.1  70.4  73.9
+    ##  4           -12.9    73.3  71.6  75.0
+    ##  5           -12.5    74.4  72.7  76.0
+    ##  6           -12.1    75.5  73.9  77.1
+    ##  7           -11.7    76.6  75.0  78.2
+    ##  8           -11.3    77.7  76.2  79.3
+    ##  9           -10.9    78.8  77.3  80.3
+    ## 10           -10.5    79.9  78.4  81.4
+    ## # … with 90 more rows
+
+``` r
+mu_4H2 %>%
+  ggplot(aes(x = weight_centered,
+             y = mu_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d3,
+             aes(x = weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "Weight - Mean Weight",
+       y = "Height")
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
 Document the information about the analysis session
 

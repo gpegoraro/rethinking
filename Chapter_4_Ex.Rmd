@@ -34,7 +34,7 @@ Line 1
 
 ### 4E3
 
-$$ Pr(mu, sigma\|h) = Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0, 10)\*Exponential(sigma\| 1)) \\ Integral Integral Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0, 10)\*Exponential(sigma\| 1)) dmu dgamma $$
+Pr(mu, sigma\|h) = Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0, 10)\*Exponential(sigma\| 1)) \\ Integral Integral Product-i(Normal(h-i\|mu, sigma)\*Normal(mu\| 0, 10)\*Exponential(sigma\| 1)) dmu dgamma
 
 ### 4E4
 
@@ -213,8 +213,8 @@ mu_4_3 <- samples_4_3 %>%
   unnest(c("mu", "weight_centered")) %>%
   group_by(weight_centered) %>%
   summarise(mu_mean = mean(mu),
-            mu_HPDI_89 = list(HPDI(mu))) %>%
-  unnest_wider(mu_HPDI_89)
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
 
 mu_4_3
 ```
@@ -224,8 +224,8 @@ mu_4_3 %>%
   ggplot(aes(x = weight_centered,
              y = mu_mean)) +
   geom_line(color = "black") +
-  geom_ribbon(aes(ymin = `|0.89`,
-                  ymax = `0.89|`),
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
               fill = "grey70",
               alpha = 0.3) +
   geom_point(data = d2,
@@ -244,8 +244,8 @@ mu_4_3b <- samples_4_3b %>%
   unnest(c("mu", "weight")) %>%
   group_by(weight) %>%
   summarise(mu_mean = mean(mu),
-            mu_HPDI_89 = list(HPDI(mu))) %>%
-  unnest_wider(mu_HPDI_89)
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
 
 mu_4_3b
 ```
@@ -255,13 +255,13 @@ mu_4_3b %>%
   ggplot(aes(x = weight,
              y = mu_mean)) +
   geom_line(color = "black") +
-  geom_ribbon(aes(ymin = `|0.89`,
-                  ymax = `0.89|`),
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
               fill = "grey70",
               alpha = 0.3) +
   geom_point(data = d2,
              aes(x = weight,
-                y = height),
+                 y = height),
              color = "navyblue",
              shape = 21) +
   labs(x = "Weight",
@@ -339,6 +339,137 @@ shade(mu_PI,
 ```
 
 ## Hard
+
+### 3H1
+
+```{r}
+d <- tibble(Howell1)
+
+d2 <- d %>%
+  filter(age >= 18)
+
+weight_mean <-   mean(d2$weight)
+
+test <- tibble(individual = 1:5,
+       weight = c(46.95, 43.72, 64.78, 32.59, 54.63)) %>%
+  mutate(weight_centered = weight - weight_mean)
+
+test
+```
+
+```{r}
+height_4_3 <- samples_4_3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * test$weight_centered),
+         weight_centered = list(test$weight_centered)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  rowwise() %>%
+  mutate(height = rnorm(1, mu, sigma)) %>%
+  group_by(weight_centered) %>%
+  summarise(height_mean = mean(height),
+            height_PI_89 = list(PI(height))) %>%
+  unnest_wider(height_PI_89)
+
+height_4_3
+```
+
+### 3H2
+
+```{r}
+d3 <- d %>%
+  filter(age < 18) %>%
+  mutate(weight_centered = weight - mean(weight))
+
+glimpse(d3)
+```
+
+```{r}
+d3 %>%
+  ggplot(aes(x = weight_centered,
+             y = height)) +
+  geom_point(shape = 21,
+             color = "navyblue")
+```
+
+```{r}
+n_lines <- 100
+
+prior_4H2 <- tibble(
+n = 1: n_lines,
+a = rnorm(n_lines, 120, 20),
+b = rlnorm(n_lines, 0, 0.5)) %>%
+  expand(nesting(n, a, b), weight_centered = range(d3$weight_centered)) %>%
+  mutate(height = a + b * weight_centered)
+
+prior_4H2
+```
+
+```{r}
+prior_4H2 %>%
+  ggplot(aes(x = weight_centered,
+             y = height,
+             group = n)) +
+  geom_line(alpha = 0.5)
+```
+
+```{r}
+m4H2 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * weight_centered,
+    a ~ dnorm(120, 20),
+    b ~ dlnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ),
+  data = d3
+)
+```
+
+```{r}
+precis(m4H2)
+```
+
+```{r}
+round(vcov(m4H2), 3)
+```
+
+```{r}
+grid_4H2 <- seq(from = min(d3$weight_centered), 
+                to = max(d3$weight_centered), 
+                length.out = n_grid)
+
+samples_4H2 <- tibble(extract.samples(m4H2, n_samples))
+```
+
+```{r}
+mu_4H2 <- samples_4H2 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H2),
+         weight_centered = list(grid_4H2)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  group_by(weight_centered) %>%
+  summarise(mu_mean = mean(mu),
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
+
+mu_4H2
+```
+
+```{r}
+mu_4H2 %>%
+  ggplot(aes(x = weight_centered,
+             y = mu_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d3,
+             aes(x = weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "Weight - Mean Weight",
+       y = "Height")
+```
 
 Document the information about the analysis session
 
