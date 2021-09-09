@@ -623,7 +623,7 @@ m4H2 <- quap(
     mu <- a + b * weight_centered,
     a ~ dnorm(120, 20),
     b ~ dlnorm(0, 0.5),
-    sigma ~ dexp(1)
+    sigma ~ dunif(0,50)
   ),
   data = d3
 )
@@ -634,18 +634,18 @@ precis(m4H2)
 ```
 
     ##             mean         sd       5.5%      94.5%
-    ## a     108.329223 0.59596268 107.376759 109.281686
-    ## b       2.711860 0.06689661   2.604947   2.818774
-    ## sigma   8.261558 0.40864625   7.608462   8.914653
+    ## a     108.329649 0.60864077 107.356924 109.302375
+    ## b       2.711505 0.06832246   2.602312   2.820697
+    ## sigma   8.437468 0.43060976   7.749270   9.125666
 
 ``` r
 round(vcov(m4H2), 3)
 ```
 
-    ##           a     b sigma
-    ## a     0.355 0.000 0.000
-    ## b     0.000 0.004 0.000
-    ## sigma 0.000 0.000 0.167
+    ##          a     b sigma
+    ## a     0.37 0.000 0.000
+    ## b     0.00 0.005 0.000
+    ## sigma 0.00 0.000 0.185
 
 ``` r
 grid_4H2 <- seq(from = min(d3$weight_centered), 
@@ -671,15 +671,15 @@ mu_4H2
     ## # A tibble: 100 × 4
     ##    weight_centered mu_mean  `5%` `94%`
     ##              <dbl>   <dbl> <dbl> <dbl>
-    ##  1           -14.2    69.9  68.1  71.7
-    ##  2           -13.8    71.0  69.3  72.8
+    ##  1           -14.2    69.9  68.1  71.8
+    ##  2           -13.8    71.0  69.3  72.9
     ##  3           -13.3    72.1  70.4  73.9
-    ##  4           -12.9    73.3  71.6  75.0
-    ##  5           -12.5    74.4  72.7  76.0
-    ##  6           -12.1    75.5  73.9  77.1
+    ##  4           -12.9    73.3  71.5  75.0
+    ##  5           -12.5    74.4  72.7  76.1
+    ##  6           -12.1    75.5  73.8  77.1
     ##  7           -11.7    76.6  75.0  78.2
-    ##  8           -11.3    77.7  76.2  79.3
-    ##  9           -10.9    78.8  77.3  80.3
+    ##  8           -11.3    77.7  76.1  79.3
+    ##  9           -10.9    78.8  77.3  80.4
     ## 10           -10.5    79.9  78.4  81.4
     ## # … with 90 more rows
 
@@ -702,6 +702,249 @@ mu_4H2 %>%
 ```
 
 ![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
+
+``` r
+height_4H2 <- samples_4H2 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H2),
+         weight_centered = list(grid_4H2)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  rowwise() %>%
+  mutate(height = rnorm(1, mu, sigma)) %>%
+  group_by(weight_centered) %>%
+  summarise(height_mean = mean(height),
+            height_PI_97 = list(PI(height, prob = 0.97))) %>%
+  unnest_wider(height_PI_97)
+
+height_4H2
+```
+
+    ## # A tibble: 100 × 4
+    ##    weight_centered height_mean  `2%` `98%`
+    ##              <dbl>       <dbl> <dbl> <dbl>
+    ##  1           -14.2        69.9  51.2  88.6
+    ##  2           -13.8        71.0  52.7  89.3
+    ##  3           -13.3        72.3  53.1  91.1
+    ##  4           -12.9        73.1  54.8  91.9
+    ##  5           -12.5        74.4  56.0  93.1
+    ##  6           -12.1        75.5  56.7  93.6
+    ##  7           -11.7        76.7  58.1  95.5
+    ##  8           -11.3        77.7  58.9  96.5
+    ##  9           -10.9        78.7  60.3  97.0
+    ## 10           -10.5        80.0  62.0  98.2
+    ## # … with 90 more rows
+
+``` r
+height_4H2 %>%
+  ggplot(aes(x = weight_centered,
+             y = height_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `2%`,
+                  ymax = `98%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d3,
+             aes(x = weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "Weight - Mean Weight",
+       y = "Height")
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+
+### 3H3
+
+``` r
+d <- d %>% 
+  mutate(log_weight = log(weight),
+         log_weight_centered = log_weight - mean(log_weight))
+```
+
+``` r
+d %>%
+  ggplot(aes(x = log_weight_centered,
+             y = height)) +
+  geom_point(shape = 21,
+             color = "navyblue")
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-37-1.png)<!-- -->
+
+``` r
+n_lines <- 100
+
+prior_4H3 <- tibble(
+n = 1: n_lines,
+a = rnorm(n_lines, 120, 20),
+b = rlnorm(n_lines, 0, 1)) %>%
+  expand(nesting(n, a, b), log_weight_centered = range(d$log_weight_centered)) %>%
+  mutate(height = a + b * log_weight_centered)
+
+prior_4H3
+```
+
+    ## # A tibble: 200 × 5
+    ##        n     a     b log_weight_centered height
+    ##    <int> <dbl> <dbl>               <dbl>  <dbl>
+    ##  1     1  125. 0.420              -1.99    124.
+    ##  2     1  125. 0.420               0.701   125.
+    ##  3     2  128. 2.65               -1.99    122.
+    ##  4     2  128. 2.65                0.701   129.
+    ##  5     3  146. 0.319              -1.99    145.
+    ##  6     3  146. 0.319               0.701   146.
+    ##  7     4  112. 1.18               -1.99    110.
+    ##  8     4  112. 1.18                0.701   113.
+    ##  9     5  120. 0.947              -1.99    118.
+    ## 10     5  120. 0.947               0.701   121.
+    ## # … with 190 more rows
+
+``` r
+prior_4H3 %>%
+  ggplot(aes(x = log_weight_centered,
+             y = height,
+             group = n)) +
+  geom_line(alpha = 0.5)
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-39-1.png)<!-- -->
+
+``` r
+m4H3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * log_weight_centered,
+    a ~ dnorm(120, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0,50)
+  ),
+  data = d
+)
+```
+
+``` r
+precis(m4H3)
+```
+
+    ##             mean        sd       5.5%     94.5%
+    ## a     138.261388 0.2201356 137.909569 138.61321
+    ## b      47.071125 0.3826313  46.459606  47.68264
+    ## sigma   5.134711 0.1556690   4.885921   5.38350
+
+``` r
+round(vcov(m4H2), 3)
+```
+
+    ##          a     b sigma
+    ## a     0.37 0.000 0.000
+    ## b     0.00 0.005 0.000
+    ## sigma 0.00 0.000 0.185
+
+``` r
+grid_4H3 <- seq(from = min(d$log_weight_centered), 
+                to = max(d$log_weight_centered), 
+                length.out = n_grid)
+
+samples_4H3 <- tibble(extract.samples(m4H3, n_samples))
+```
+
+``` r
+mu_4H3 <- samples_4H3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H3),
+         log_weight_centered = list(grid_4H3)) %>%
+  unnest(c("mu", "log_weight_centered")) %>%
+  group_by(log_weight_centered) %>%
+  summarise(mu_mean = mean(mu),
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
+
+mu_4H3
+```
+
+    ## # A tibble: 100 × 4
+    ##    log_weight_centered mu_mean  `5%` `94%`
+    ##                  <dbl>   <dbl> <dbl> <dbl>
+    ##  1               -1.99    44.4  43.1  45.6
+    ##  2               -1.97    45.6  44.4  46.9
+    ##  3               -1.94    46.9  45.7  48.2
+    ##  4               -1.91    48.2  47.0  49.4
+    ##  5               -1.89    49.5  48.3  50.7
+    ##  6               -1.86    50.8  49.6  52.0
+    ##  7               -1.83    52.1  50.9  53.2
+    ##  8               -1.80    53.3  52.2  54.5
+    ##  9               -1.78    54.6  53.5  55.8
+    ## 10               -1.75    55.9  54.8  57.0
+    ## # … with 90 more rows
+
+``` r
+mu_4H3 %>%
+  ggplot(aes(x = log_weight_centered,
+             y = mu_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d,
+             aes(x = log_weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "log(Weight) - Mean log(Weight)",
+       y = "Height")
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-45-1.png)<!-- -->
+
+``` r
+height_4H3 <- samples_4H3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H3),
+         log_weight_centered = list(grid_4H3)) %>%
+  unnest(c("mu", "log_weight_centered")) %>%
+  rowwise() %>%
+  mutate(height = rnorm(1, mu, sigma)) %>%
+  group_by(log_weight_centered) %>%
+  summarise(height_mean = mean(height),
+            height_PI_89 = list(PI(height))) %>%
+  unnest_wider(height_PI_89)
+
+height_4H3
+```
+
+    ## # A tibble: 100 × 4
+    ##    log_weight_centered height_mean  `5%` `94%`
+    ##                  <dbl>       <dbl> <dbl> <dbl>
+    ##  1               -1.99        44.2  35.9  52.5
+    ##  2               -1.97        45.7  37.4  54.1
+    ##  3               -1.94        46.9  38.6  55.1
+    ##  4               -1.91        48.2  39.7  56.5
+    ##  5               -1.89        49.5  41.3  57.7
+    ##  6               -1.86        50.8  42.6  59.2
+    ##  7               -1.83        52.1  43.7  60.4
+    ##  8               -1.80        53.3  45.0  61.6
+    ##  9               -1.78        54.7  46.6  63.2
+    ## 10               -1.75        55.9  47.7  64.0
+    ## # … with 90 more rows
+
+``` r
+height_4H3 %>%
+  ggplot(aes(x = log_weight_centered,
+             y = height_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d,
+             aes(x = log_weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "log(Weight) - Mean log(Weight)",
+       y = "Height")
+```
+
+![](Chapter_4_Ex_files/figure-gfm/unnamed-chunk-47-1.png)<!-- -->
 
 Document the information about the analysis session
 

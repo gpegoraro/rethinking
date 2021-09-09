@@ -418,7 +418,7 @@ m4H2 <- quap(
     mu <- a + b * weight_centered,
     a ~ dnorm(120, 20),
     b ~ dlnorm(0, 0.5),
-    sigma ~ dexp(1)
+    sigma ~ dunif(0,50)
   ),
   data = d3
 )
@@ -468,6 +468,169 @@ mu_4H2 %>%
              color = "navyblue",
              shape = 21) +
   labs(x = "Weight - Mean Weight",
+       y = "Height")
+```
+
+```{r}
+height_4H2 <- samples_4H2 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H2),
+         weight_centered = list(grid_4H2)) %>%
+  unnest(c("mu", "weight_centered")) %>%
+  rowwise() %>%
+  mutate(height = rnorm(1, mu, sigma)) %>%
+  group_by(weight_centered) %>%
+  summarise(height_mean = mean(height),
+            height_PI_97 = list(PI(height, prob = 0.97))) %>%
+  unnest_wider(height_PI_97)
+
+height_4H2
+```
+
+```{r}
+height_4H2 %>%
+  ggplot(aes(x = weight_centered,
+             y = height_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `2%`,
+                  ymax = `98%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d3,
+             aes(x = weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "Weight - Mean Weight",
+       y = "Height")
+```
+
+### 3H3
+
+```{r}
+d <- d %>% 
+  mutate(log_weight = log(weight),
+         log_weight_centered = log_weight - mean(log_weight))
+```
+
+```{r}
+d %>%
+  ggplot(aes(x = log_weight_centered,
+             y = height)) +
+  geom_point(shape = 21,
+             color = "navyblue")
+```
+
+```{r}
+n_lines <- 100
+
+prior_4H3 <- tibble(
+n = 1: n_lines,
+a = rnorm(n_lines, 120, 20),
+b = rlnorm(n_lines, 0, 1)) %>%
+  expand(nesting(n, a, b), log_weight_centered = range(d$log_weight_centered)) %>%
+  mutate(height = a + b * log_weight_centered)
+
+prior_4H3
+```
+
+```{r}
+prior_4H3 %>%
+  ggplot(aes(x = log_weight_centered,
+             y = height,
+             group = n)) +
+  geom_line(alpha = 0.5)
+```
+
+```{r}
+m4H3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * log_weight_centered,
+    a ~ dnorm(120, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dunif(0,50)
+  ),
+  data = d
+)
+```
+
+```{r}
+precis(m4H3)
+```
+
+```{r}
+round(vcov(m4H2), 3)
+```
+
+```{r}
+grid_4H3 <- seq(from = min(d$log_weight_centered), 
+                to = max(d$log_weight_centered), 
+                length.out = n_grid)
+
+samples_4H3 <- tibble(extract.samples(m4H3, n_samples))
+```
+
+```{r}
+mu_4H3 <- samples_4H3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H3),
+         log_weight_centered = list(grid_4H3)) %>%
+  unnest(c("mu", "log_weight_centered")) %>%
+  group_by(log_weight_centered) %>%
+  summarise(mu_mean = mean(mu),
+            mu_PI_89 = list(PI(mu))) %>%
+  unnest_wider(mu_PI_89)
+
+mu_4H3
+```
+
+```{r}
+mu_4H3 %>%
+  ggplot(aes(x = log_weight_centered,
+             y = mu_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d,
+             aes(x = log_weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "log(Weight) - Mean log(Weight)",
+       y = "Height")
+```
+
+```{r}
+height_4H3 <- samples_4H3 %>%
+  mutate(mu = map2(a, b, ~ .x + .y * grid_4H3),
+         log_weight_centered = list(grid_4H3)) %>%
+  unnest(c("mu", "log_weight_centered")) %>%
+  rowwise() %>%
+  mutate(height = rnorm(1, mu, sigma)) %>%
+  group_by(log_weight_centered) %>%
+  summarise(height_mean = mean(height),
+            height_PI_89 = list(PI(height))) %>%
+  unnest_wider(height_PI_89)
+
+height_4H3
+```
+
+```{r}
+height_4H3 %>%
+  ggplot(aes(x = log_weight_centered,
+             y = height_mean)) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = `5%`,
+                  ymax = `94%`),
+              fill = "grey70",
+              alpha = 0.3) +
+  geom_point(data = d,
+             aes(x = log_weight_centered,
+                 y = height),
+             color = "navyblue",
+             shape = 21) +
+  labs(x = "log(Weight) - Mean log(Weight)",
        y = "Height")
 ```
 
