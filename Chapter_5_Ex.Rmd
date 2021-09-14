@@ -1,0 +1,45 @@
+---
+title: "Chapter 5 Excercises"
+output: github_document
+---
+
+Code and solutions for Chapter 5 of the [Statistical Rethinking 2 Ed.](https://xcelab.net/rm/statistical-rethinking/) textbook by R. McElreath.
+
+```{r load-packages}
+library(rethinking)
+library(tidyverse)
+library(ggthemes)
+```
+
+Set the palette and the running theme for ggplot2.
+
+```{r set-theme-palette}
+theme_set(theme_bw())
+theme_update(axis.text.x = element_text(
+angle = -45,
+hjust = 0,
+vjust = 0.5
+))
+```
+
+## Easy
+
+### 5E1
+
+(4) mu[i] = A + BX * x[i] + BZ * z[i]
+
+### 5E2
+
+L[i] ~ Normal(mu[i], sigma)
+
+mu[i] = A + AD * animal_diversity[i] + PD * plant_diversity[i]
+
+## Medium
+
+## Hard
+
+Document the information about the analysis session
+
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```
