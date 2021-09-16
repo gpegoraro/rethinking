@@ -26,17 +26,127 @@ vjust = 0.5
 
 ### 5E1
 
-(4) mu[i] = A + BX * x[i] + BZ * z[i]
+(4) mu[i] = A + Bx * x[i] + Bz * z[i]
 
 ### 5E2
 
 L[i] ~ Normal(mu[i], sigma)
 
-mu[i] = A + AD * animal_diversity[i] + PD * plant_diversity[i]
+mu[i] = A + Bd * animal_diversity[i] + Bd * plant_diversity[i]
+
+### 5E3
+
+T[i] ~ Normal(mu[i], sigma)
+
+mu[i] = A + Bf * funding[i] + Bs * size[i]
+
+Both Bf and Bd should have a positive value
+
+### 5E4
+
+(4) mu[i] = Aa * a[i] + Ab * b[i] + Ac * c[i] + Ad * d[i]
+(5) mu[i] = Aa * (1 - b[i] - c[i] - d[i]) + Ab * b[i] + Ac * c[i] + Ad * d[i]
+
+In (4) the coefficients represent mean values for the different levels of the variable: Aa mean value when the variable is A, Ab mean value when the variable is B, Ac mean value when the variable is C, Ad mean value when the variable is D.
+
+In (5):
+
+* If the variable = A, then mu[i] = Aa
+* If the variable = B, then mu[i] = Aa - Aa + Ab, or mu[i] = Ab
+* If the variable = B, then mu[i] = Aa - Aa + Ac, or mu[i] = Ac
+* If the variable = B, then mu[i] = Aa - Aa + Ad, or mu[i] = Ad
+
+These are the same coefficients seen in (4).
 
 ## Medium
 
+### 5M1
+
+Predictor 1: Maximum wind speed on any given day between October and April for any Italian city above 100k inhabitants
+
+Predictor 2: Is the city Trieste?
+
+Outcome: Normalized number of buffet restaurants specialized in boiled pork and sauerkraut for any Italian city above 100k inhabitants
+
+Max wind speed in winter <- Triestiness -> Number of buffet restaurants 
+
+### 5M2
+
+Predictor1: Number of hours worked
+
+Predictor2: Fatigue level
+
+Outcome: Work Output 
+
+Total Work Output  <- (+) Number of hours worked (+) -> Fatigue level (-) > Total Work Output 
+
 ## Hard
+
+### 5H1
+
+```{r}
+library(rethinking)
+library(dagitty)
+
+DMA_dag_3 <- dagitty('dag{M -> A -> D}')
+coordinates(DMA_dag_3) <- list(x = c(M = 0, A = 0.5, D = 1), y = c(M = 0, A = 0, D = 0))
+drawdag(DMA_dag_3)
+```
+```{r}
+impliedConditionalIndependencies(DMA_dag_3)
+```
+
+Yes, the data is consistent with DAG # 3. A, M and D are all correlated in the absence of conditioning on A, and D is independent of M, conditional on A. 
+
+### 5H2
+
+```{r}
+library(tidyverse)
+
+data("WaffleDivorce")
+d <- tibble(WaffleDivorce)
+
+d <- d %>%
+  select(A = MedianAgeMarriage, 
+         D = Divorce, 
+         M = Marriage) %>%
+  transmute(across(everything(), ~ standardize(.x)))
+
+glimpse(d)
+```
+
+```{r}
+m5H2 <- quap(
+  alist(
+    ## M -> A -> D
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM * M + bA * A,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    bA ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+precis(m5H2)
+```
+
+```{r}
+set.seed(2971)
+
+sim_dat <- tibble(M = seq(-2, 2, length.out = 30))
+
+sim_dat2 <- tibble(M = sort(standardize(WaffleDivorce$Marriage/2)))
+
+m5H2_sim <- sim(m5H2, data = sim_dat2, vars = c("A", "D"))
+```
+
+```{r}
+plot(sim_dat2$M, colMeans(m5H2_sim$D), ylim = c(-4, 2), type = "l")
+shade(apply(m5H2_sim$D, 2, PI), sim_dat2$M)
+```
+
+
 
 Document the information about the analysis session
 
