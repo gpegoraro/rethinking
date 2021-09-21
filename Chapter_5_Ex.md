@@ -188,35 +188,49 @@ m5H2 <- quap(
     a ~ dnorm(0, 0.2),
     bM ~ dnorm(0, 0.5),
     bA ~ dnorm(0, 0.5),
-    sigma ~ dexp(1)
+    sigma ~ dexp(1),
+    ## M -> A
+    A ~ dnorm(muA, sigmaA),
+    muA <- aMA + bMA * M,
+    aMA ~ dnorm(0, 0.2),
+    bMA ~ dnorm(0, 0.5),
+    sigmaA ~ dexp(1)
   ), data = d
 )
 
 precis(m5H2)
 ```
 
-    ##                mean        sd       5.5%      94.5%
-    ## a      0.0000193783 0.0970759 -0.1551267  0.1551654
-    ## bM    -0.0652848141 0.1507738 -0.3062504  0.1756808
-    ## bA    -0.6134437571 0.1509843 -0.8547458 -0.3721418
-    ## sigma  0.7851165922 0.0778431  0.6607083  0.9095249
+    ##                 mean         sd       5.5%      94.5%
+    ## a       2.934403e-05 0.09707742 -0.1551191  0.1551778
+    ## bM     -6.535423e-02 0.15077586 -0.3063232  0.1756147
+    ## bA     -6.136268e-01 0.15098442 -0.8549290 -0.3723245
+    ## sigma   7.851327e-01 0.07784688  0.6607183  0.9095470
+    ## aMA     7.342282e-06 0.08684829 -0.1387930  0.1388077
+    ## bMA    -6.947199e-01 0.09572770 -0.8477113 -0.5417286
+    ## sigmaA  6.817413e-01 0.06758117  0.5737335  0.7897490
 
 ``` r
 set.seed(2971)
 
 sim_dat <- tibble(M = seq(-2, 2, length.out = 30))
 
-sim_dat2 <- tibble(M = sort(standardize(WaffleDivorce$Marriage/2)))
-
-m5H2_sim <- sim(m5H2, data = sim_dat2, vars = c("A", "D"))
+m5H2_sim <- sim(m5H2, data = sim_dat, vars = c("A", "D"))
 ```
 
 ``` r
-plot(sim_dat2$M, colMeans(m5H2_sim$D), ylim = c(-4, 2), type = "l")
-shade(apply(m5H2_sim$D, 2, PI), sim_dat2$M)
+plot(sim_dat$M, colMeans(m5H2_sim$D), ylim = c(-2, 2), type = "l")
+shade(apply(m5H2_sim$D, 2, PI), sim_dat$M)
 ```
 
 ![](Chapter_5_Ex_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+``` r
+plot(sim_dat$M, colMeans(m5H2_sim$A), ylim = c(-2, 2), type = "l")
+shade(apply(m5H2_sim$A, 2, PI), sim_dat$M)
+```
+
+![](Chapter_5_Ex_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 Document the information about the analysis session
 
@@ -257,10 +271,10 @@ sessionInfo()
     ## [29] magrittr_2.0.1     crayon_1.4.1       readxl_1.3.1       evaluate_0.14     
     ## [33] ps_1.6.0           fs_1.5.0           fansi_0.5.0        MASS_7.3-54       
     ## [37] xml2_1.3.2         pkgbuild_1.2.0     tools_4.1.1        loo_2.4.1         
-    ## [41] prettyunits_1.1.1  hms_1.1.0          lifecycle_1.0.0    matrixStats_0.60.1
+    ## [41] prettyunits_1.1.1  hms_1.1.0          lifecycle_1.0.0    matrixStats_0.61.0
     ## [45] V8_3.4.2           munsell_0.5.0      reprex_2.0.1       callr_3.7.0       
     ## [49] compiler_4.1.1     rlang_0.4.11       grid_4.1.1         rstudioapi_0.13   
-    ## [53] rmarkdown_2.10     boot_1.3-28        gtable_0.3.0       codetools_0.2-18  
+    ## [53] rmarkdown_2.11     boot_1.3-28        gtable_0.3.0       codetools_0.2-18  
     ## [57] inline_0.3.19      DBI_1.1.1          curl_4.3.2         R6_2.5.1          
     ## [61] gridExtra_2.3      lubridate_1.7.10   knitr_1.34         fastmap_1.1.0     
     ## [65] utf8_1.2.2         shape_1.4.6        stringi_1.7.4      Rcpp_1.0.7        

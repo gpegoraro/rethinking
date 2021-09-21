@@ -124,7 +124,13 @@ m5H2 <- quap(
     a ~ dnorm(0, 0.2),
     bM ~ dnorm(0, 0.5),
     bA ~ dnorm(0, 0.5),
-    sigma ~ dexp(1)
+    sigma ~ dexp(1),
+    ## M -> A
+    A ~ dnorm(muA, sigmaA),
+    muA <- aMA + bMA * M,
+    aMA ~ dnorm(0, 0.2),
+    bMA ~ dnorm(0, 0.5),
+    sigmaA ~ dexp(1)
   ), data = d
 )
 
@@ -136,14 +142,16 @@ set.seed(2971)
 
 sim_dat <- tibble(M = seq(-2, 2, length.out = 30))
 
-sim_dat2 <- tibble(M = sort(standardize(WaffleDivorce$Marriage/2)))
-
-m5H2_sim <- sim(m5H2, data = sim_dat2, vars = c("A", "D"))
+m5H2_sim <- sim(m5H2, data = sim_dat, vars = c("A", "D"))
 ```
 
 ```{r}
-plot(sim_dat2$M, colMeans(m5H2_sim$D), ylim = c(-4, 2), type = "l")
-shade(apply(m5H2_sim$D, 2, PI), sim_dat2$M)
+plot(sim_dat$M, colMeans(m5H2_sim$D), ylim = c(-2, 2), type = "l")
+shade(apply(m5H2_sim$D, 2, PI), sim_dat$M)
+```
+```{r}
+plot(sim_dat$M, colMeans(m5H2_sim$A), ylim = c(-2, 2), type = "l")
+shade(apply(m5H2_sim$A, 2, PI), sim_dat$M)
 ```
 
 
