@@ -92,6 +92,7 @@ DMA_dag_3 <- dagitty('dag{M -> A -> D}')
 coordinates(DMA_dag_3) <- list(x = c(M = 0, A = 0.5, D = 1), y = c(M = 0, A = 0, D = 0))
 drawdag(DMA_dag_3)
 ```
+
 ```{r}
 impliedConditionalIndependencies(DMA_dag_3)
 ```
